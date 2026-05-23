@@ -1,0 +1,6 @@
+build/
+data/*.db
+resources/trained_models/*.yml
+.DS_Store
+*.o
+*.user
