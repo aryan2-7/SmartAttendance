@@ -6,8 +6,8 @@ Submitted for ENGG 102 – Kathmandu University, Dept. of Computer Science.
 ## Team
 | Name | Roll | Module |
 |------|------|--------|
-| Aryan Khatri | 43 | Face Registration, Attendance Marking |
-| Shashwot Karki | 36 | Face Registration, Attendance Marking |
+| Aryan Khatri | 43 | Face Registration|
+| Shashwot Karki | 36 |Attendance Marking |
 | Subhechha Ghimire | 26 | Login / Auth |
 | Dilasha Dulal | 18 | UI/UX |
 | Prachika Dhaubhadel | 14 | Database, Records Viewer |
@@ -26,8 +26,9 @@ git clone https://github.com/aryan2-7/SmartAttendance.git
 ```
 
 ```bash
-mkdir build && cd build
+mkdir build
+cd build
 cmake ..
-make -j4
+cmake --build . -j4
 ./SmartAttendance
 ```
