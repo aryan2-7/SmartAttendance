@@ -30,3 +30,35 @@
 #include <string>
 
 
+// Here we are defining where the cascade file is and where the models after training should be saved at
+static const std::string CASCADE_PATH = "../resources/haarcascades/haarcascade_frontalface_default.xml";
+
+static const std::string MODELS_DIR = "../resources/trained_models/";
+
+static const int SAMPLES = 30; // We are gonna be taking 30 pictures for the LBPH training
+
+
+// Main class
+class FaceRegistration: public QWidget{
+    Q_OBJECT
+    
+    public:
+        explicit FaceRegistration(QWidget *parent = nullptr);
+        ~FaceRegistration();
+        
+    signals: //Sent after all 30 samples are collected to train the LBPH and .yml file creation
+        void registrationComplete(int userId, const QString &name, const QString &rollNo);
+        
+    private slots:
+        void processFrame(); // Bacically camera
+        
+        void onStartClicked(); // Stars the registration process
+        
+        void onEndClicked(); // Stops the regis. process
+        
+    private:
+    //need a bunch of UI elements and stuff work for later
+    
+        
+}
+    
