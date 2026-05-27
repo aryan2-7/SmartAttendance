@@ -8,3 +8,25 @@
 //  5.Save the trained modles as .yml files
 //
 // Libraries needed: OpenCV, Qt(6/5)
+
+
+#include <QWidget>
+#include <QLabel>
+#include <QTimer>
+#include <QPushButton>
+#include <QLineEdit>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QMessageBox>
+#include <QProgressBar>
+
+#include <opencv2/core.hpp>
+#include <opencv2/videoio.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/objdetect.hpp>
+#include <opencv2/face.hpp>      // LBPHFaceRecognizer if youre having problems with this, you prob havent installed the opencv_contrib which we NEED
+
+#include <vector>
+#include <string>
+
+
