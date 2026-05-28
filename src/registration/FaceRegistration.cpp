@@ -102,8 +102,51 @@ bool FaceRegistration::openCamera(){
     return true;
 }
 
+//Detect faces and capture samples
+void FaceRegistration::processFrame(){
+    cv::Mat frame;
+    if (!cap_.read(frame) || frame.empty()) {
+        qWarning() << "[FaceRegistration] Failed to read frame from camera.";
+        return;
+    }
+
+    cv::flip(frame, frame, 1); //to flip the camera, not sure if this will stay or not
+
+    cv::Rect faceRect;
+    bool facefound = detectLargestFace(frame, faceRect);
+
+    if(facefound){
+        cv::rectangle(frame, faceRect, cv::Scalar(255, 0, 0), 2); //Draw rectangle around detected face
+        if (capturing_) {
+            //Extract cropped face thats gray
+            cv::Mat gray;
+            cv::cvtColor(frame(faceRect), gray, cv::COLOR_BGR2GRAY);
+            cvv:Mat faceCrop = gray(faceRect);
+
+            cv::Mat processed = preprocessFace(faceCrop);
+            faceImages_.push_back(processed);
+            faceLabels.push_back(1); //Label is 1 since we are only registering one person at a time
+            
+            sampleCount_++;
+            progressBar_->setValue(sampleCount_);
+            statusLabel_->setText(QString("Capturing samples... Please stay in frame. (%1/%2)").arg(sampleCount_).arg(SAMPLES));
+
+            //Overlay the sample count on the webcam for aura
+            std::string overlay = std::to_string(sampleCount_) + " / " + std::to_string(SAMPLES);
+            cv::putText(frame, overlay, cv::Point(faceRect.x, faceRect.y - 8), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 0, 0), 2);
+
+            //  for tmr: if (sampleCount_ >= SAMPLES_NEEDED) {
+
+            
+        }
+    } else {
+        statusLabel_->setText("No face detected. Please adjust your position.");
+    }
+}
+
+
+
 //Work for later:
-//  -processFrame() to capture frames and detect faces, collect samples, and update UI
 //  -detectLargestFace() to find the biggest face in the frame using Haar cascades
 //  -preprocessFace() to prepare face images for LBPH training
 //  -trainAndSave() To train LBPH recogniser and save the model to disk
