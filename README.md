@@ -32,3 +32,6 @@ cmake ..
 cmake --build . -j4
 ./SmartAttendance
 ```
+## Documentation
+To check progress go to [This](https://github.com/aryan2-7/SmartAttendance/blob/main/docs/architecture.md)
+Teamates are requested to update this after every major change
