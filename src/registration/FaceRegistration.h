@@ -1,3 +1,4 @@
+#pragma once
 // Header file for the face registration process
 //
 // This file will contain the FaceRegistration class which will do the following:
@@ -54,12 +55,12 @@ class FaceRegistration: public QWidget{
         
         void onStartClicked(); // Stars the registration process
         
-        void onEndClicked(); // Stops the regis. process
+        void onCancelClicked(); // Stops the regis. process
         
     private:
     
     //UI
-    QLabel* videoLable_; //webcam preview
+    QLabel* videoLabel_; //webcam preview
     QLineEdit* nameEdit_; //student name
     QLineEdit* rollEdit_; //student roll
     QPushButton* startBtn_; //starts process
@@ -76,11 +77,11 @@ class FaceRegistration: public QWidget{
     bool capturing_; //T if capturing, F if not started or cancelled
     int sampleCount_; //number of samples
     
-    std::vector<cv::Mat> faceImage_; // Preprocessed 100x100 greayscale box of sadness
+    std::vector<cv::Mat> faceImages_; // Preprocessed 100x100 greayscale box of sadness
     std::vector<int> faceLabels_; //this js says its one person for .yml
     
     //helpers
-    bool openCam();
+    bool openCamera();
     bool detectLargestFace(const cv::Mat &frame, cv::Rect &faceRect); //Picks the largest face and draws a rectangle around it
     bool trainAndSave(const std::string &modelPath); //trains and saves gng
     cv::Mat preprocessFace(const cv::Mat &grayFaceCrop); //each of the 30 samples need to be cropped and turned into greyscale for LBPH training this just helps in that

@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QDebug>
 #include <QFileInfo>
+#include <QPixmap>
 #include <QRegularExpression>
 
 #include <opencv2/face.hpp>
@@ -84,7 +85,7 @@ void FaceRegistration::buildUI(){
 //Open camera and load cascade file
 
 bool FaceRegistration::openCamera(){
-    cap_.open(0); //Open default camera (index 0)
+    cap_.open(1); //Open default camera (index 0)
     if (!cap_.isOpened()) {
         qWarning() << "[FaceRegistration] Failed to open camera index 0.";
         return false;
@@ -116,24 +117,23 @@ void FaceRegistration::processFrame(){
     bool facefound = detectLargestFace(frame, faceRect);
 
     if(facefound){
-        cv::rectangle(frame, faceRect, cv::Scalar(255, 0, 0), 2); //Draw rectangle around detected face
+        cv::rectangle(frame, faceRect, cv::Scalar(0, 0, 255), 2); //Draw rectangle around detected face
         if (capturing_) {
             //Extract cropped face thats gray
             cv::Mat gray;
             cv::cvtColor(frame(faceRect), gray, cv::COLOR_BGR2GRAY);
-            cvv:Mat faceCrop = gray(faceRect);
 
-            cv::Mat processed = preprocessFace(faceCrop);
+            cv::Mat processed = preprocessFace(gray);
             faceImages_.push_back(processed);
-            faceLabels.push_back(1); //Label is 1 since we are only registering one person at a time
+            faceLabels_.push_back(1); //Label is 1 since we are only registering one person at a time
             
             sampleCount_++;
             progressBar_->setValue(sampleCount_);
-            statusLabel_->setText(QString("Capturing samples... Please stay in frame. (%1/%2)").arg(sampleCount_).arg(SAMPLES));
+            statusLabel_->setText(QString("Capturing samples... stay in frame brodie. (%1/%2)").arg(sampleCount_).arg(SAMPLES));
 
             //Overlay the sample count on the webcam for aura
             std::string overlay = std::to_string(sampleCount_) + " / " + std::to_string(SAMPLES);
-            cv::putText(frame, overlay, cv::Point(faceRect.x, faceRect.y - 8), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 0, 0), 2);
+            cv::putText(frame, overlay, cv::Point(faceRect.x, faceRect.y - 8), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 0, 255), 2);
 
 
 
