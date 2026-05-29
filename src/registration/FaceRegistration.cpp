@@ -157,8 +157,8 @@ void FaceRegistration::processFrame(){
                     QString msg = isUpdate ? QString("Re-registered: %1 (model updated)").arg(name): QString("Registered: %1").arg(name);
                     statusLabel_->setText(msg);
 
-                    // TODO Phase 2: connect this signal to DatabaseManager::addUser()
-                    // so the name/roll/model path are persisted in attendance.db.
+                    // TODO Phase 2: connect this signal to DatabaseManager::addUser() so the name/roll/model path are persisted in attendance.db.
+                    // Will be done after db finished
                     emit registrationComplete(1, name, rollNo);
 
                     // Reset for the next registration.
@@ -188,17 +188,99 @@ void FaceRegistration::processFrame(){
             
         }
     } else {
+        if (capturing_){
         statusLabel_->setText("No face detected. Please adjust your position.");
+        cv::putText(frame, "No face detected", cv::Point(20, 40), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 0, 255), 2);
+    }
+}
+//Convert the frame to QImage and display it in the QLabel
+    QImage qimg = matToQImage(frame);
+    videoLabel_->setPixmap(QPixmap::fromImage(qimg));
+
+}
+
+
+//Detect the largest face in the frame and returns true and box around largest face, else returns false
+bool FaceRegistration::detectLargestFace(const cv::Mat& frame, cv::Rect& faceRect){
+    cv::Mat gray;
+    cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+    cv::equalizeHist(gray, gray); //this chunk is important to improve contrast and detection accuracy, especially in varying lighting conditions. It normalizes the brightness and increases the contrast of the image. Without this step, the face detection might struggle in low-light or high-contrast
+
+    std::vector<cv::Rect> faces;
+    // scaleFactor=1.1, minNeighbors=5, minSize=80×80 for LBPH to work decently, and flags=0 for default
+    faceCascade_.detectMultiScale(gray, faces, 1.1, 5, 0, cv::Size(80, 80));
+
+    if (faces.empty())
+        return false;
+
+    faceRect = *std::max_element(faces.begin(), faces.end(),
+        [](const cv::Rect& a, const cv::Rect& b) {
+            return a.area() < b.area();
+        });
+
+    return true;
+}
+
+
+//  -preprocessFace() to prepare face images for LBPH training
+cv::Mat FaceRegistration::preprocessFace(const cv::Mat &grayFaceCrop){
+    cv::Mat resized, equalized;
+    cv::resize(grayFaceCrop, resized, cv::Size(100, 100)); //LBPH works best with consistent size, we using 100x100
+    cv::equalizeHist(resized, equalized); //Again equalization to improve contrast for better LBPH feature extraction
+    return equalized; //Return the preprocessed face image ready for LBPH training
+}
+
+
+
+//  -trainAndSave() To train LBPH recogniser and save the model to disk
+bool FaceRegistration::trainAndSave(const std::string& modelPath){
+    if (faceImages_.empty() || faceLabels_.empty()) {
+        qWarning() << "[FaceRegistration] No samples to train on.";
+        return false;
+    }
+
+    try {
+        auto recogniser = cv::face::LBPHFaceRecognizer::create(
+            1,   // radius
+            8,   // neighbours
+            8,   // gridX
+            8    // gridY
+            //tweakable later if needed
+        );
+
+        recogniser->train(faceImages_, faceLabels_);
+        recogniser->save(modelPath);
+
+        qDebug() << "[FaceRegistration] Model saved to:" << QString::fromStdString(modelPath);
+        return true;
+
+    } catch (const cv::Exception& e) {
+        qWarning() << "[FaceRegistration] OpenCV exception during training:"
+                   << e.what();
+        return false;
     }
 }
 
 
 
-//Work for later:
-//  -detectLargestFace() to find the biggest face in the frame using Haar cascades
-//  -preprocessFace() to prepare face images for LBPH training
-//  -trainAndSave() To train LBPH recogniser and save the model to disk
 //  -buildModelFileName() just to have consitant name_rollnum.yml
+std::string FaceRegistration::buildModelFileName(const QString& name, const QString& roll){
+    QString safeName = name;
+    safeName.replace(' ', '_'); //Spaces are changed to aandascores
+    safeName.remove(QRegularExpression("[^A-Za-z0-9_\\-]")); 
+
+    QString safeRoll = roll;
+    safeRoll.remove(QRegularExpression("[^A-Za-z0-9_\\-]")); //Im using regex to aurafarm and because its simple here
+    //The regex here is simply looking for any character that is NOT (an uppercase letter, lowercase letter, digit, underscore, or hyphen) and removing it.
+
+    if (safeName.isEmpty())
+        safeName = "unknown";
+
+    return (safeName + "_" + safeRoll + ".yml").toStdString();
+}
+
+
+//Work for later:
 //  -matToQImage() to convert OpenCV's BGR Mat to Qt's RGB QImage for display
 //  -onStartClicked() to start the registration process and lock inputs
 //  -onCancelClicked() to cancel the registration and reset the UI
