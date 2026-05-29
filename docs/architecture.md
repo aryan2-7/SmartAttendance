@@ -30,8 +30,8 @@ SmartAttendance/
 │   │   ├── LoginWindow.h               ⬜ not started
 │   │   └── LoginWindow.cpp             ⬜ not started
 │   ├── registration/
-│   │   ├── FaceRegistration.h          ✅ done
-│   │   └── FaceRegistration.cpp        ⬜ started
+│   │   ├── FaceRegistration.h          ✅ done by Aryan
+│   │   └── FaceRegistration.cpp        ✅ done by Aryan
 │   ├── attendance/
 │   │   ├── AttendanceMarker.h          ⬜ not started
 │   │   └── AttendanceMarker.cpp        ⬜ not started
