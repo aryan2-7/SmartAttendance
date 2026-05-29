@@ -135,7 +135,55 @@ void FaceRegistration::processFrame(){
             std::string overlay = std::to_string(sampleCount_) + " / " + std::to_string(SAMPLES);
             cv::putText(frame, overlay, cv::Point(faceRect.x, faceRect.y - 8), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 0, 0), 2);
 
-            //  for tmr: if (sampleCount_ >= SAMPLES_NEEDED) {
+
+
+            if (sampleCount_ >= SAMPLES){
+                timer_ -> stop();
+                statusLabel_ -> setText("Training model.. please wait");
+                QApplication::processEvents();
+
+                QString name = nameEdit_ -> text().trimmed();
+                QString rollNo = rollEdit_->text().trimmed();
+
+                // making sure the output directory exists.
+                QDir().mkpath(QString::fromStdString(MODELS_DIR));
+                std::string modelFileName = buildModelFileName(name, rollNo);
+                std::string modelPath     = MODELS_DIR + modelFileName;
+
+                // if a model already exists, we overwrite it
+                bool isUpdate = QFileInfo::exists(QString::fromStdString(modelPath));
+
+                if (trainAndSave(modelPath)) {
+                    QString msg = isUpdate ? QString("Re-registered: %1 (model updated)").arg(name): QString("Registered: %1").arg(name);
+                    statusLabel_->setText(msg);
+
+                    // TODO Phase 2: connect this signal to DatabaseManager::addUser()
+                    // so the name/roll/model path are persisted in attendance.db.
+                    emit registrationComplete(1, name, rollNo);
+
+                    // Reset for the next registration.
+                    capturing_    = false;
+                    sampleCount_  = 0;
+                    faceImages_.clear();
+                    faceLabels_.clear();
+
+                    progressBar_->setValue(0);
+                    nameEdit_->clear();
+                    rollEdit_->clear();
+                    nameEdit_->setEnabled(true);
+                    rollEdit_->setEnabled(true);
+                    startBtn_->setEnabled(true);
+                    cancelBtn_->setEnabled(false);
+
+                }
+                else{
+                    statusLabel_ -> setText("Registration failed try again later");
+                    onCancelClicked();
+                }
+
+                timer_ -> start(33);
+
+            }
 
             
         }
