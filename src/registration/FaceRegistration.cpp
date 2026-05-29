@@ -280,8 +280,62 @@ std::string FaceRegistration::buildModelFileName(const QString& name, const QStr
 }
 
 
-//Work for later:
 //  -matToQImage() to convert OpenCV's BGR Mat to Qt's RGB QImage for display
-//  -onStartClicked() to start the registration process and lock inputs
-//  -onCancelClicked() to cancel the registration and reset the UI
+QImage FaceRegistration::matToQImage(const cv::Mat& mat){
+    if (mat.type() == CV_8UC3) {
+        cv::Mat rgb;
+        cv::cvtColor(mat, rgb, cv::COLOR_BGR2RGB);
+        return QImage(rgb.data, rgb.cols, rgb.rows, static_cast<int>(rgb.step), QImage::Format_RGB888).copy();
+    }
     
+    else if (mat.type() == CV_8UC1) {
+        return QImage(mat.data, mat.cols, mat.rows, static_cast<int>(mat.step), QImage::Format_Grayscale8).copy();
+    } // We use static_cast for safety idk if needed 
+
+    else {
+        qWarning() << "[FaceRegistration] Unsupported Mat type for conversion to QImage:" << mat.type();
+        return QImage();
+    }
+}
+
+
+//  -onStartClicked() to start the registration process and lock inputs
+void FaceRegistration::onStartClicked(){
+    QString name   = nameEdit_->text().trimmed();
+    QString rollNo = rollEdit_->text().trimmed();  // .trimmed() whitespace prevention
+
+    if (name.isEmpty() || rollNo.isEmpty()) {
+        QMessageBox::warning(this, "Missing details", "Please enter naam and a roll number yrrr");
+        return;
+    }
+
+    faceImages_.clear();
+    faceLabels_.clear();
+    sampleCount_ = 0;
+    progressBar_->setValue(0);
+
+    // Lock inputs so they can't be changed mid-capture.
+    nameEdit_->setEnabled(false);
+    rollEdit_->setEnabled(false);
+    startBtn_->setEnabled(false);
+    cancelBtn_->setEnabled(true);
+
+    capturing_ = true;
+    statusLabel_->setText("Look directly at the camera…");
+}
+
+
+//  -onCancelClicked() to cancel the registration and reset the UI
+void FaceRegistration::onCancelClicked(){
+    capturing_   = false;
+    sampleCount_ = 0;
+    faceImages_.clear();
+    faceLabels_.clear();
+
+    progressBar_->setValue(0);
+    nameEdit_->setEnabled(true);
+    rollEdit_->setEnabled(true);
+    startBtn_->setEnabled(true);
+    cancelBtn_->setEnabled(false);
+    statusLabel_->setText("Registration cancelled. Enter details and try again.");
+}    //This function resets all the relevant variables and UI elements to their initial state
