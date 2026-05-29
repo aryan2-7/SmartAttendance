@@ -85,7 +85,7 @@ void FaceRegistration::buildUI(){
 //Open camera and load cascade file
 
 bool FaceRegistration::openCamera(){
-    cap_.open(1); //Open default camera (index 0)
+    cap_.open(0); //Open default camera (index 0)
     if (!cap_.isOpened()) {
         qWarning() << "[FaceRegistration] Failed to open camera index 0.";
         return false;
