@@ -21,16 +21,26 @@ struct attendance_record {
     string date;
     string time;
 };
-//Database class to handle database operations
-class Database {
-    private:
-    sqlite3* db;
-    void createTable();
 
-    public:
-    Database(const string& db_name);
-    ~Database();
-    void initialize();
-    void addStudent(const Student& student);
-    void markAttendance(const attendance_record& record);
-};
+//Creates database at db_path, and table if not exists, 
+//Called when application starts
+bool initializeDatabase(const string& db_path);
+
+//Inserts a student record into the database, called when a new student is added
+//Returns new row id on success, -1 on failure
+int addStudent(const string& name, const string& roll_no, const string& model_path);
+
+
+//Returns true if attendance for the student_id on the given date is already marked, false otherwise
+bool isAlreadyMarked(int student_id, const string& date);
+
+//Marks attendance for the student_id on the given date and time
+//Internally calls isAlreadyMarked to prevent duplicate entries, returns true on successful marking, false if already marked or on failure
+bool markAttendance(int student_id, const string& date, const string& time);
+
+//Returns a vector of attendance records for the given date, empty vector if no records or on failure
+vector<attendance_record> getRecords(const string& date);
+
+// Closes the database connection. Call at application shutdown.
+void closeDatabase();
+
