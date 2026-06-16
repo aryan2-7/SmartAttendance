@@ -1,46 +1,46 @@
-#include <iostream>
+#pragma once
 #include <string>
-#include <sqlite3.h>
 #include <vector>
-using namespace std;
+#include "sqlite3.h"
 
-
-//for students
-struct Student {
-    int id=0;
-    string name;
-    string roll_no;
-    string model_path;
-    string created_at;
+// One row of attendance data 
+struct AttendanceRecord {
+    int id;
+    std::string studentName;
+    int rollNumber;
+    std::string date;      
+    std::string time;       
 };
 
-//For attendance records
-struct attendance_record {
-    int id=0;
-    int student_id=0;
-    string date;
-    string time;
+class Database {
+public:
+    // Opens (or creates) the database file at the given path
+    explicit Database(const std::string& dbPath);
+
+    // Close the DB 
+    ~Database();
+
+    // Call this once at start to create tables if they don't exist 
+    bool initializeTables();
+
+    // Student
+    bool addStudent(const std::string& name, int rollNumber);
+    bool studentExists(int rollNumber);
+
+    // --- Attendance ---
+    // Returns false if this student already marked attendance today
+    bool markAttendance(int rollNumber, const std::string& name);
+
+    // Returns all attendance records (for the RecordsViewer)
+    std::vector<AttendanceRecord> getAllRecords();
+
+    // --- Login ---
+    // Returns true if username + password match a record in the users table
+    bool checkLogin(const std::string& username, const std::string& password);
+
+private:
+    sqlite3* db;  // raw SQLite connection handle
+
+    // Internal helper — runs a SQL string, returns true on success
+    bool execute(const std::string& sql);
 };
-
-//Creates database at db_path, and table if not exists, 
-//Called when application starts
-bool initializeDatabase(const string& db_path);
-
-//Inserts a student record into the database, called when a new student is added
-//Returns new row id on success, -1 on failure
-int addStudent(const string& name, const string& roll_no, const string& model_path);
-
-
-//Returns true if attendance for the student_id on the given date is already marked, false otherwise
-bool isAlreadyMarked(int student_id, const string& date);
-
-//Marks attendance for the student_id on the given date and time
-//Internally calls isAlreadyMarked to prevent duplicate entries, returns true on successful marking, false if already marked or on failure
-bool markAttendance(int student_id, const string& date, const string& time);
-
-//Returns a vector of attendance records for the given date, empty vector if no records or on failure
-vector<attendance_record> getRecords(const string& date);
-
-// Closes the database connection. Call at application shutdown.
-void closeDatabase();
-
