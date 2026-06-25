@@ -1,0 +1,3 @@
+C:/Users/shash/source/repos/SmartAttendance/build/CMakeFiles/SmartAttendance.dir
+C:/Users/shash/source/repos/SmartAttendance/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/shash/source/repos/SmartAttendance/build/CMakeFiles/ZERO_CHECK.dir

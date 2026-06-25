@@ -1,14 +1,16 @@
 #include <QApplication>
-#include "FaceRegistration.h"
+#include <QtGlobal>
+#include <QByteArray>
+#include "MainMenu.h"
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
+    // FIX for: "Could not find the Qt platform plugin 'windows'"
+    qputenv("QT_PLUGIN_PATH", QByteArray("C:\\vcpkg\\installed\\x64-windows\\debug\\Qt6\\plugins"));
+
     QApplication app(argc, argv);
 
-    FaceRegistration window;
-    window.setWindowTitle("Face Registration");
-    window.resize(800, 650);
-    window.show();
+    MainMenu menu;
+    menu.show();
 
     return app.exec();
 }

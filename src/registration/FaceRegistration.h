@@ -32,9 +32,9 @@
 
 
 // Here we are defining where the cascade file is and where the models after training should be saved at
-static const std::string CASCADE_PATH = "../resources/haarcascades/haarcascade_frontalface_default.xml";
+static const std::string CASCADE_PATH = "resources/haarcascades/haarcascade_frontalface_default.xml";
 
-static const std::string MODELS_DIR = "../resources/trained_models/";
+static const std::string MODELS_DIR = "resources/trained_models/";
 
 static const int SAMPLES = 30; // We are gonna be taking 30 pictures for the LBPH training
 

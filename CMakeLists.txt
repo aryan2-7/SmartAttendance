@@ -65,6 +65,7 @@ endif()
 # Commented-out lines = not implemented yet, uncomment when ready.
 set(SOURCES
     src/main.cpp
+    src/MainMenu.cpp
 
     # Module 1 – Login (Subhechha)
     # src/auth/LoginWindow.cpp
@@ -73,7 +74,7 @@ set(SOURCES
     src/registration/FaceRegistration.cpp
 
     # Module 3 – Attendance Marking (Shashwot + Aryan)
-    # src/attendance/AttendanceMarker.cpp
+    src/attendance/AttendanceMarker.cpp
 
     # Module 4 – Records Viewer (Prachika)
     # src/records/RecordsViewer.cpp
@@ -106,6 +107,13 @@ target_include_directories(SmartAttendance PRIVATE
 target_link_libraries(SmartAttendance PRIVATE
     ${QT_LIBS}
     ${OpenCV_LIBS}
+)
+
+# ─── Copy resources next to exe so relative paths work ────────────────────────
+add_custom_command(TARGET SmartAttendance POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/resources"
+        "$<TARGET_FILE_DIR:SmartAttendance>/resources"
 )
 
 

@@ -1,0 +1,5 @@
+C:/Users/shash/source/repos/SmartAttendance/out/build/x64-Debug/CMakeFiles/SmartAttendance.dir
+C:/Users/shash/source/repos/SmartAttendance/out/build/x64-Debug/CMakeFiles/edit_cache.dir
+C:/Users/shash/source/repos/SmartAttendance/out/build/x64-Debug/CMakeFiles/rebuild_cache.dir
+C:/Users/shash/source/repos/SmartAttendance/out/build/x64-Debug/CMakeFiles/SmartAttendance_autogen_timestamp_deps.dir
+C:/Users/shash/source/repos/SmartAttendance/out/build/x64-Debug/CMakeFiles/SmartAttendance_autogen.dir
