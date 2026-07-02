@@ -76,6 +76,9 @@ set(SOURCES
     # Module 3 – Attendance Marking (Shashwot + Aryan)
     src/attendance/AttendanceMarker.cpp
 
+    # Shared – Preprocessing module
+    src/common/FacePreprocessor.cpp
+
     # Module 4 – Records Viewer (Prachika)
     # src/records/RecordsViewer.cpp
 
@@ -96,6 +99,7 @@ target_include_directories(SmartAttendance PRIVATE
     ${OpenCV_INCLUDE_DIRS}
     ${SQLITE_INCLUDE}
     src                     # so modules can include each other without relative path gymnastics
+    src/common
     src/auth
     src/registration
     src/attendance

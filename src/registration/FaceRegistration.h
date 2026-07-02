@@ -2,11 +2,11 @@
 // Header file for the face registration process
 //
 // This file will contain the FaceRegistration class which will do the following:
-//  1.Initialise the camera and show a prewview
+//  1.Initialise the camera and show a preview
 //  2.Use haar cascade to detect a face in frame
 //  3.Take 30 pictures, of the face convert it into greyscale
 //  4.Train an LBPH recogniser on those images
-//  5.Save the trained modles as .yml files
+//  5.Save the trained models as .yml files
 //
 // Libraries needed: OpenCV, Qt(6/5)
 
@@ -25,18 +25,27 @@
 #include <opencv2/videoio.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/objdetect.hpp>
-#include <opencv2/face.hpp>      // LBPHFaceRecognizer if youre having problems with this, you prob havent installed the opencv_contrib which we NEED
+#include <opencv2/face.hpp>
+
+#include "common/FacePreprocessor.h"
 
 #include <vector>
 #include <string>
 
 
-// Here we are defining where the cascade file is and where the models after training should be saved at
 static const std::string CASCADE_PATH = "resources/haarcascades/haarcascade_frontalface_default.xml";
-
+static const std::string LBF_MODEL_PATH = "resources/models/lbfmodel.yaml";
 static const std::string MODELS_DIR = "resources/trained_models/";
 
-static const int SAMPLES = 30; // We are gonna be taking 30 pictures for the LBPH training
+static const int SAMPLES = 30;
+
+// Batch sizes: 10 front, 5 left, 5 right, 5 up, 5 down = 30 total
+static const int BATCH_FRONT = 10;
+static const int BATCH_LEFT  = 5;
+static const int BATCH_RIGHT = 5;
+static const int BATCH_UP    = 5;
+static const int BATCH_DOWN  = 5;
+static const int NUM_BATCHES = 5;
 
 
 // Main class
@@ -47,49 +56,52 @@ class FaceRegistration: public QWidget{
         explicit FaceRegistration(QWidget *parent = nullptr);
         ~FaceRegistration();
         
-    signals: //Sent after all 30 samples are collected to train the LBPH and .yml file creation
+    signals:
         void registrationComplete(int userId, const QString &name, const QString &rollNo);
         
     private slots:
-        void processFrame(); // Bacically camera
-        
-        void onStartClicked(); // Stars the registration process
-        
-        void onCancelClicked(); // Stops the regis. process
+        void processFrame();
+        void onStartClicked();
+        void onCancelClicked();
+        void onContinueClicked();
         
     private:
     
     //UI
-    QLabel* videoLabel_; //webcam preview
-    QLineEdit* nameEdit_; //student name
-    QLineEdit* rollEdit_; //student roll
-    QPushButton* startBtn_; //starts process
-    QPushButton* cancelBtn_; //ends process
-    QProgressBar* progressBar_; //how many pictures
-    QLabel* statusLabel_; //text
+    QLabel* videoLabel_;
+    QLineEdit* nameEdit_;
+    QLineEdit* rollEdit_;
+    QPushButton* startBtn_;
+    QPushButton* cancelBtn_;
+    QPushButton* continueBtn_;
+    QProgressBar* progressBar_;
+    QLabel* statusLabel_;
     
     //Camera stuff
-    cv::VideoCapture cap_; //webcam
-    cv::CascadeClassifier faceCascade_; //Harr face cascade to recognise what a face is like
-    QTimer* timer_; //ticks
+    cv::VideoCapture cap_;
+    cv::CascadeClassifier faceCascade_;
+    QTimer* timer_;
+    
+    //Preprocessing
+    FacePreprocessor preprocessor_;
     
     //Variables
-    bool capturing_; //T if capturing, F if not started or cancelled
-    int sampleCount_; //number of samples
+    bool capturing_;
+    int sampleCount_;
+    int batchCount_; // which batch (0, 1, 2)
     
-    std::vector<cv::Mat> faceImages_; // Preprocessed 100x100 greayscale box of sadness
-    std::vector<int> faceLabels_; //this js says its one person for .yml
+    std::vector<cv::Mat> faceImages_;
+    std::vector<int> faceLabels_;
     
     //helpers
     bool openCamera();
-    bool detectLargestFace(const cv::Mat &frame, cv::Rect &faceRect); //Picks the largest face and draws a rectangle around it
-    bool trainAndSave(const std::string &modelPath); //trains and saves gng
-    cv::Mat preprocessFace(const cv::Mat &grayFaceCrop); //each of the 30 samples need to be cropped and turned into greyscale for LBPH training this just helps in that
+    bool detectLargestFace(const cv::Mat &frame, cv::Rect &faceRect);
+    bool trainAndSave(const std::string &modelPath);
     
-    static std::string buildModelFileName(const QString &name, const QString &roll); //this is for the naming style of the .yml models after training
+    static std::string buildModelFileName(const QString &name, const QString &roll);
+    static QImage matToQImage(const cv::Mat &mat);
     
-    static QImage matToQImage(const cv::Mat &mat); //this is required as opencv and Qt have diff image parameters so we gottta convert
-    
-    void buildUI(); //this will be called by a constructor
-        
+    void buildUI();
+    QString getBatchPrompt() const;
+    void startNextBatch();
 };

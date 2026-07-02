@@ -108,16 +108,15 @@ void MainMenu::onMarkAttendanceClicked() {
 
     std::cout << "Starting Attendance Scanner for: " << name.toStdString() << " (Roll No: " << rollNo.toStdString() << ")\n";
 
-    // Hide Qt window during OpenCV scanning to keep focus
-    this->hide();
-
     if (marker.initialize(cascadePath, eyeCascadePath, modelPath)) {
+        // Hide Qt window only after camera is confirmed open
+        this->hide();
         marker.run();
+        // Show Qt window again after scanner closes
+        this->show();
     } else {
         QMessageBox::critical(this, "Initialization Failed",
             "Failed to initialize the attendance marker. Make sure camera and cascade files are accessible.");
+        this->show();
     }
-
-    // Show Qt window again
-    this->show();
 }
