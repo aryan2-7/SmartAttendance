@@ -1,47 +1,49 @@
 #pragma once
-
-#include <opencv2/opencv.hpp>
-#include <opencv2/face.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/objdetect/face.hpp>
+#include <opencv2/videoio.hpp>
 #include <string>
-#include <unordered_map>
+#include <vector>
+#include <map>
 #include <chrono>
+
+struct StudentRecord {
+    std::string name;
+    std::string roll;
+    cv::Mat     gallery;   // [N × 128] float32 — all enrolled embeddings
+};
 
 class AttendanceMarker {
 public:
     AttendanceMarker();
-    ~AttendanceMarker();
 
-    // Initializes the camera, cascade, and LBPH model
-    bool initialize(const std::string& cascadePath, const std::string& eyeCascadePath, const std::string& modelPath);
+    // Call before run(). Loads all .bin files from the gallery directory.
+    bool initialize(const std::string &detectorModel,
+                    const std::string &recognizerModel,
+                    const std::string &galleryDir);
 
-    // Maps integer label ID to a pair of (Name, RollNo)
-    void setLabelMap(const std::unordered_map<int, std::pair<std::string, std::string>>& map);
-
-    // Starts the main recognition loop
-    void run();
+    void run();  // blocking; returns when 'q' pressed or auto-close
 
 private:
-    cv::VideoCapture cap_;
-    cv::CascadeClassifier faceCascade_;
-    cv::CascadeClassifier eyeCascade_;
-    cv::Ptr<cv::face::LBPHFaceRecognizer> recognizer_;
+    cv::Ptr<cv::FaceDetectorYN>   detector_;
+    cv::Ptr<cv::FaceRecognizerSF> recognizer_;
+    cv::VideoCapture              cap_;
 
-    // Stores ID -> (Name, RollNo)
-    std::unordered_map<int, std::pair<std::string, std::string>> labelMap_;
+    std::vector<StudentRecord> students_;
 
-    // Stores ID -> Blink State (0=init, 1=eyes open, 2=eyes closed, 3=blinked)
-    std::unordered_map<int, int> blinkState_;
+    // Cooldown tracking: roll -> last-logged time
+    std::map<std::string, std::chrono::steady_clock::time_point> lastLogged_;
 
-    // To prevent logging the same person 30 times a second, we store the last time they were logged
-    std::unordered_map<int, std::chrono::steady_clock::time_point> lastLoggedTime_;
+    static constexpr double COSINE_THRESHOLD = 0.363; // SFace recommended threshold
+    static constexpr int    COOLDOWN_SECONDS = 300;
 
-    // Counter to automatically close the window after marking present
-    int closeCounter_;
+    // Blink liveness per detected face slot (index in students_)
+    std::map<int, int> blinkState_;
+    std::map<int, int> closeCounter_;
 
-    // Helper to log attendance to CSV
-    void logAttendance(int labelId, double accuracy, const std::string& status);
-
-    
-    // Helper to get current timestamp as a string
-    std::string getCurrentTimestamp();
+    bool loadGallery(const std::string &galleryDir);
+    bool detectBestFace(const cv::Mat &frame, cv::Mat &faceBox);
+    int  matchFace(const cv::Mat &feat);   // returns index into students_, or -1
+    void logAttendance(const StudentRecord &s, double score, const std::string &status);
+    bool livenessCheck(int idx, const cv::Mat &frame, const cv::Mat &faceBox);
 };

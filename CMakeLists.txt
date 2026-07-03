@@ -24,16 +24,16 @@ endif()
 
 
 # ─── OpenCV ───────────────────────────────────────────────────────────────────
-# We need opencv_contrib for the face module (LBPHFaceRecognizer lives there)
+# We need opencv_contrib for the face module (SFace/FaceDetectorYN live there)
 # If you installed via homebrew: brew install opencv
 # Make sure you have the contrib modules — check with: brew info opencv
 find_package(OpenCV REQUIRED COMPONENTS
     core
     imgproc
-    objdetect   # Haar cascade
+    objdetect   # Haar cascade (for eye cascade in liveness check)
     videoio     # webcam / VideoCapture
     highgui     # imshow etc (handy for debugging)
-    face        # LBPHFaceRecognizer — needs opencv_contrib
+    dnn         # DNN module for YuNet/SFace ONNX models
 )
 
 if (NOT OpenCV_FOUND)

@@ -1,210 +1,225 @@
 #include "AttendanceMarker.h"
-#include <iostream>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
 #include <fstream>
-#include <iomanip>
-#include <ctime>
+#include <iostream>
 #include <filesystem>
+#include <ctime>
+#include <chrono>
+#include <sstream>
+#include <iomanip>
 
-AttendanceMarker::AttendanceMarker() : closeCounter_(0) {
-    recognizer_ = cv::face::LBPHFaceRecognizer::create();
-}
+namespace fs = std::filesystem;
 
-AttendanceMarker::~AttendanceMarker() {
-    if (cap_.isOpened()) {
-        cap_.release();
-    }
-    cv::destroyAllWindows();
-}
+AttendanceMarker::AttendanceMarker() = default;
 
-bool AttendanceMarker::initialize(const std::string& cascadePath, const std::string& eyeCascadePath, const std::string& modelPath) {
-    if (!faceCascade_.load(cascadePath)) {
-        std::cerr << "[Error] Could not load Haar Cascade XML from " << cascadePath << "\n";
-        return false;
-    }
+// ── Initialize ────────────────────────────────────────────────────────────
+bool AttendanceMarker::initialize(const std::string &detectorModel,
+                                  const std::string &recognizerModel,
+                                  const std::string &galleryDir) {
+    detector_ = cv::FaceDetectorYN::create(
+        detectorModel, "", cv::Size(640, 480), 0.9f, 0.3f, 5000);
+    if (!detector_) { std::cerr << "YuNet load failed\n"; return false; }
 
-    if (!eyeCascade_.load(eyeCascadePath)) {
-        std::cerr << "[Error] Could not load Eye Haar Cascade XML from " << eyeCascadePath << "\n";
-        return false;
-    }
+    recognizer_ = cv::FaceRecognizerSF::create(recognizerModel, "");
+    if (!recognizer_) { std::cerr << "SFace load failed\n"; return false; }
 
-    try {
-        recognizer_->read(modelPath);
-        std::cout << "[Success] Loaded LBPH face recognition model from " << modelPath << "\n";
-    } catch (const cv::Exception& e) {
-        std::cerr << "[Error] Failed to load .yml model. Did Aryan generate it yet?\n";
-        std::cerr << "OpenCV Error: " << e.what() << "\n";
-        return false;
-    }
+    if (!loadGallery(galleryDir)) { std::cerr << "Gallery empty\n"; return false; }
 
     cap_.open(0);
-    if (!cap_.isOpened()) {
-        std::cerr << "[Error] Failed to open webcam.\n";
-        return false;
-    }
+    if (!cap_.isOpened()) { std::cerr << "Webcam open failed\n"; return false; }
 
     return true;
 }
 
-void AttendanceMarker::setLabelMap(const std::unordered_map<int, std::pair<std::string, std::string>>& map) {
-    labelMap_ = map;
+// ── Load .bin gallery files ───────────────────────────────────────────────
+bool AttendanceMarker::loadGallery(const std::string &galleryDir) {
+    for (auto &entry : fs::directory_iterator(galleryDir)) {
+        if (entry.path().extension() != ".bin") continue;
+
+        // Filename format: "Aryan_Khatri_43.bin"
+        std::string stem = entry.path().stem().string(); // "Aryan_Khatri_43"
+        size_t lastUs = stem.rfind('_');
+        if (lastUs == std::string::npos) continue;
+        std::string roll     = stem.substr(lastUs + 1);
+        std::string namePart = stem.substr(0, lastUs);
+        std::replace(namePart.begin(), namePart.end(), '_', ' ');
+
+        // Read binary gallery mat
+        std::ifstream ifs(entry.path().string(), std::ios::binary);
+        int rows = 0, cols = 0;
+        ifs.read(reinterpret_cast<char*>(&rows), sizeof(int));
+        ifs.read(reinterpret_cast<char*>(&cols), sizeof(int));
+        cv::Mat gallery(rows, cols, CV_32F);
+        ifs.read(reinterpret_cast<char*>(gallery.data),
+                 static_cast<std::streamsize>(rows * cols * sizeof(float)));
+
+        students_.push_back({namePart, roll, gallery});
+        std::cout << "Loaded: " << namePart << " (Roll " << roll << ")\n";
+    }
+    return !students_.empty();
 }
 
-std::string AttendanceMarker::getCurrentTimestamp() {
-    auto now = std::chrono::system_clock::now();
-    std::time_t now_c = std::chrono::system_clock::to_time_t(now);
-    std::stringstream ss;
-    ss << std::put_time(std::localtime(&now_c), "%Y-%m-%d %H:%M:%S");
-    return ss.str();
+// ── Detect best face ──────────────────────────────────────────────────────
+bool AttendanceMarker::detectBestFace(const cv::Mat &frame, cv::Mat &faceBox) {
+    detector_->setInputSize(frame.size());
+    cv::Mat faces;
+    detector_->detect(frame, faces);
+    if (faces.rows < 1) return false;
+
+    int best = 0;
+    for (int i = 1; i < faces.rows; ++i)
+        if (faces.at<float>(i, 14) > faces.at<float>(best, 14)) best = i;
+
+    faceBox = faces.row(best);
+    return true;
 }
 
-void AttendanceMarker::logAttendance(int labelId, double accuracy, const std::string& status) {
-    auto now = std::chrono::steady_clock::now();
-    
-    // Check cooldown for this person (5 minutes = 300 seconds)
-    if (lastLoggedTime_.find(labelId) != lastLoggedTime_.end()) {
-        auto timeSinceLastLog = std::chrono::duration_cast<std::chrono::seconds>(now - lastLoggedTime_[labelId]).count();
-        if (timeSinceLastLog < 300) {
-            return;
+// ── Match feature vector against all enrolled students ────────────────────
+// Returns index into students_ with highest cosine similarity above threshold.
+// Returns -1 if no match.
+int AttendanceMarker::matchFace(const cv::Mat &feat) {
+    int    bestIdx   = -1;
+    double bestScore = COSINE_THRESHOLD;
+
+    for (int s = 0; s < static_cast<int>(students_.size()); ++s) {
+        const cv::Mat &gallery = students_[s].gallery;
+        // Compare query feat against every enrolled sample; take max score
+        for (int r = 0; r < gallery.rows; ++r) {
+            cv::Mat sample = gallery.row(r);
+            double score = recognizer_->match(feat, sample,
+                                              cv::FaceRecognizerSF::FR_COSINE);
+            if (score > bestScore) {
+                bestScore = score;
+                bestIdx   = s;
+            }
         }
     }
-
-    lastLoggedTime_[labelId] = now;
-
-    std::string name = "Unknown";
-    std::string rollNo = "Unknown";
-    if (labelMap_.find(labelId) != labelMap_.end()) {
-        name = labelMap_[labelId].first;
-        rollNo = labelMap_[labelId].second;
-    }
-
-    std::ofstream file("attendance.csv", std::ios::app);
-    if (file.is_open()) {
-        std::string timestamp = getCurrentTimestamp();
-        // Format: Name, Roll No, Accuracy, Status, Timestamp
-        file << name << "," << rollNo << ",Accuracy: " << std::fixed << std::setprecision(2) << accuracy << "%," << status << "," << timestamp << "\n";
-        file.close();
-        
-        std::string absPath = std::filesystem::absolute("attendance.csv").string();
-        std::cout << ">>> ATTENDANCE RECORDED in: " << absPath << "\n";
-        std::cout << "    Student: " << name << " (Roll No: " << rollNo << ") at " << timestamp << " (Status: " << status << ", Accuracy: " << std::fixed << std::setprecision(2) << accuracy << "%)\n";
-    } else {
-        std::cerr << "[Error] Could not write to attendance.csv\n";
-    }
+    return bestIdx;
 }
 
-void AttendanceMarker::run() {
-    std::cout << "\n=================================================\n";
-    std::cout << "  SmartAttendance Scanner Active. Press 'q' to exit. \n";
-    std::cout << "=================================================\n\n";
+// ── Liveness check (blink state machine) ─────────────────────────────────
+bool AttendanceMarker::livenessCheck(int idx, const cv::Mat &frame,
+                                     const cv::Mat &faceBox) {
+    if (eyeCascade_->empty()) return true; // degrade gracefully if no cascade
 
-    // If attendance.csv is empty, write a header row
-    std::ifstream checkFile("attendance.csv");
-    if (!checkFile.good() || checkFile.peek() == std::ifstream::traits_type::eof()) {
-        std::ofstream file("attendance.csv");
-        file << "Name,Roll No,Accuracy,Status,Timestamp\n";
-        file.close();
+    int x = static_cast<int>(faceBox.at<float>(0, 0));
+    int y = static_cast<int>(faceBox.at<float>(0, 1));
+    int w = static_cast<int>(faceBox.at<float>(0, 2));
+    int h = static_cast<int>(faceBox.at<float>(0, 3));
+
+    cv::Rect faceRect(x, y, w, h);
+    faceRect &= cv::Rect(0, 0, frame.cols, frame.rows); // clamp to image
+    cv::Mat faceROI = frame(faceRect);
+    cv::Mat upperHalf = faceROI(cv::Rect(0, 0, faceROI.cols, faceROI.rows / 2));
+    cv::Mat gray;
+    cv::cvtColor(upperHalf, gray, cv::COLOR_BGR2GRAY);
+
+    std::vector<cv::Rect> eyes;
+    eyeCascade_->detectMultiScale(gray, eyes, 1.1, 3, 0, {20, 20});
+
+    int &state = blinkState_[idx];
+    switch (state) {
+        case 0: if (eyes.size() >= 2) state = 1; break;
+        case 1: if (eyes.empty())     state = 2; break;
+        case 2: if (!eyes.empty())    state = 3; break;
+        case 3: return true;
     }
-    checkFile.close();
+    return false;
+}
 
-    cv::Mat frame, grayFrame;
+// ── Log attendance to CSV ─────────────────────────────────────────────────
+void AttendanceMarker::logAttendance(const StudentRecord &s, double score,
+                                     const std::string &status) {
+    auto &last = lastLogged_[s.roll];
+    auto now   = std::chrono::steady_clock::now();
+    if (std::chrono::duration_cast<std::chrono::seconds>(now - last).count()
+            < COOLDOWN_SECONDS) return;
+    last = now;
+
+    // Wall-clock timestamp
+    auto t  = std::time(nullptr);
+    auto tm = *std::localtime(&t);
+    char buf[32];
+    std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tm);
+
+    std::ofstream csv("attendance.csv", std::ios::app);
+    // Write header if file is empty
+    if (csv.tellp() == 0)
+        csv << "Name,Roll No,Score,Status,Timestamp\n";
+    csv << s.name << "," << s.roll << ","
+        << std::fixed << std::setprecision(4) << score << ","
+        << status << "," << buf << "\n";
+}
+
+// ── Main recognition loop ─────────────────────────────────────────────────
+void AttendanceMarker::run() {
+    cv::Mat frame;
+    int autoClose = 0;
 
     while (true) {
         cap_ >> frame;
         if (frame.empty()) break;
-
-        // Flip horizontally to match the registration image (mirror image)
         cv::flip(frame, frame, 1);
 
-        cv::cvtColor(frame, grayFrame, cv::COLOR_BGR2GRAY);
-        cv::equalizeHist(grayFrame, grayFrame);
+        cv::Mat faceBox;
+        if (detectBestFace(frame, faceBox)) {
+            // Align and extract feature
+            cv::Mat aligned, feat;
+            recognizer_->alignCrop(frame, faceBox, aligned);
+            recognizer_->feature(aligned, feat);
 
-        std::vector<cv::Rect> faces;
-        faceCascade_.detectMultiScale(grayFrame, faces, 1.1, 4, 0, cv::Size(100, 100));
+            int idx = matchFace(feat);
 
-        for (const auto& face : faces) {
-            cv::Mat faceROI = grayFrame(face);
-            
-            // Resize to 100x100 to match the registration image size (crucial for LBPH consistency)
-            cv::Mat resizedFace;
-            cv::resize(faceROI, resizedFace, cv::Size(100, 100));
+            // Draw bounding box
+            int x = static_cast<int>(faceBox.at<float>(0, 0));
+            int y = static_cast<int>(faceBox.at<float>(0, 1));
+            int w = static_cast<int>(faceBox.at<float>(0, 2));
+            int h = static_cast<int>(faceBox.at<float>(0, 3));
 
-            int predictedLabel = -1;
-            double confidence = 0.0;
-
-            recognizer_->predict(resizedFace, predictedLabel, confidence);
-
-            cv::rectangle(frame, face, cv::Scalar(0, 255, 0), 2);
-
-            // Convert LBPH distance (lower is better, typically 30-100) to a more realistic accuracy percentage
-            double accuracy = 100.0 * (1.0 - (confidence / 130.0));
-            accuracy = std::max(0.0, std::min(100.0, accuracy));
-
-            if (predictedLabel == -1 || confidence > 130.0) {
-                // Completely unrecognized face (distance too large)
-                cv::putText(frame, "Face Not Recognised", cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 0, 255), 2);
-                continue; // Do not log unknown faces
-            }
-
-            std::string name = "Unknown";
-            if (labelMap_.find(predictedLabel) != labelMap_.end()) {
-                name = labelMap_[predictedLabel].first;
-            }
-
-            if (accuracy < 30.0) {
-                // If it recognized a registered user but confidence is very low (< 30%)
-                std::stringstream uiText;
-                uiText << name << " - ABSENT (" << std::fixed << std::setprecision(1) << accuracy << "%)";
-                cv::putText(frame, uiText.str(), cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 0, 255), 2);
-                
-                logAttendance(predictedLabel, accuracy, "Absent");
+            if (idx == -1) {
+                cv::rectangle(frame, {x, y}, {x+w, y+h}, {0, 0, 255}, 2);
+                cv::putText(frame, "Unknown", {x, y - 10},
+                            cv::FONT_HERSHEY_SIMPLEX, 0.8, {0, 0, 255}, 2);
+                autoClose = 0;
             } else {
-                // Accuracy >= 40%. Do Liveness Detection (Blink Test)
-                cv::Mat faceROIForEyes = grayFrame(face);
-                std::vector<cv::Rect> eyes;
-                // Look for eyes in the upper half of the face to reduce false positives
-                cv::Mat upperFace = faceROIForEyes(cv::Rect(0, 0, face.width, face.height / 2));
-                eyeCascade_.detectMultiScale(upperFace, eyes, 1.1, 3, 0, cv::Size(20, 20));
+                const StudentRecord &s = students_[idx];
 
-                int currentState = blinkState_[predictedLabel]; // defaults to 0
-                
-                // State 0: Waiting for eyes to be clearly open (detect >= 2 eyes)
-                if (currentState == 0 && eyes.size() >= 2) {
-                    blinkState_[predictedLabel] = 1;
-                }
-                // State 1: Eyes were open. Now waiting for them to close (detect 0 eyes, meaning a blink or looking away)
-                else if (currentState == 1 && eyes.size() == 0) {
-                    blinkState_[predictedLabel] = 2;
-                }
-                // State 2: Eyes were closed. Waiting for them to open again (detect >= 1 eye)
-                else if (currentState == 2 && eyes.size() >= 1) {
-                    blinkState_[predictedLabel] = 3; // Blink complete!
-                }
+                // Re-score: cosine similarity vs mean gallery vector (for display)
+                double score = 0;
+                for (int r = 0; r < s.gallery.rows; ++r)
+                    score = std::max(score,
+                        recognizer_->match(feat, s.gallery.row(r),
+                                           cv::FaceRecognizerSF::FR_COSINE));
 
-                if (blinkState_[predictedLabel] < 3) {
-                    std::stringstream uiText;
-                    uiText << name << " - PLEASE BLINK (" << std::fixed << std::setprecision(1) << accuracy << "%)";
-                    cv::putText(frame, uiText.str(), cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 255), 2); // Yellow text
-                    closeCounter_ = 0; // Reset auto-close timer if not verified
+                bool blinked = livenessCheck(idx, frame, faceBox);
+                std::string label;
+                cv::Scalar  color;
+
+                if (!blinked) {
+                    label = s.name + " - BLINK PLEASE";
+                    color = {0, 255, 255};
+                    autoClose = 0;
                 } else {
-                    std::stringstream uiText;
-                    uiText << name << " - PRESENT (" << std::fixed << std::setprecision(1) << accuracy << "%)";
-                    cv::putText(frame, uiText.str(), cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2); // Green text
-                    
-                    logAttendance(predictedLabel, accuracy, "Present");
-                    
-                    closeCounter_++;
-                    if (closeCounter_ > 45) { // Auto-close camera scanner after ~1.5s (45 frames) of green PRESENT text
-                        return; // Exits run() and closes the webcam
-                    }
+                    label = s.name + " - PRESENT";
+                    color = {0, 255, 0};
+                    logAttendance(s, score, "Present");
+                    autoClose++;
                 }
+
+                cv::rectangle(frame, {x, y}, {x+w, y+h}, color, 2);
+                cv::putText(frame, label, {x, y - 10},
+                            cv::FONT_HERSHEY_SIMPLEX, 0.7, color, 2);
             }
+        } else {
+            autoClose = 0;
         }
 
         cv::imshow("SmartAttendance - Scanner", frame);
-
-        // Break if 'q' is pressed OR if the user clicks the 'X' to close the window
-        if (cv::waitKey(30) == 'q' || cv::getWindowProperty("SmartAttendance - Scanner", cv::WND_PROP_VISIBLE) < 1) {
-            break;
-        }
+        if (cv::waitKey(30) == 'q') break;
+        if (autoClose > 45) break; // ~1.5 s after confirmed present
     }
+
+    cap_.release();
+    cv::destroyAllWindows();
 }

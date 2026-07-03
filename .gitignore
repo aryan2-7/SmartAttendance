@@ -3,3 +3,6 @@
 build/
 docs/AI_AGENT_GUIDE.md
 resources/trained_models/
+
+# Model files (not tracked, downloaded during setup)
+resources/models/*.onnx
