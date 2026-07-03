@@ -83,4 +83,43 @@ cv::Mat FacePreprocessor::preprocess(const cv::Mat& alignedFace) {
     return resized;
 }
 
+bool FacePreprocessor::computeYawRatio(const cv::Mat& grayFrame, const cv::Rect& faceRect, double& yawRatioOut) {
+    if (!initialized_) {
+        return false;
+    }
+
+    try {
+        cv::Mat grayClone = grayFrame.clone();
+        std::vector<cv::Rect> faces = { faceRect };
+        std::vector<std::vector<cv::Point2f>> shapes;
+
+        bool success = facemark_->fit(grayClone, faces, shapes);
+        if (!success || shapes.empty() || shapes[0].size() < 48) {
+            return false;
+        }
+
+        const std::vector<cv::Point2f>& lm = shapes[0];
+
+        // 68-point LBF layout: 36 = left eye outer corner, 45 = right eye
+        // outer corner, 30 = nose tip.
+        const cv::Point2f& leftCorner  = lm[36];
+        const cv::Point2f& rightCorner = lm[45];
+        const cv::Point2f& noseTip     = lm[30];
+
+        double eyeSpan = rightCorner.x - leftCorner.x;
+        if (std::abs(eyeSpan) < 1e-3) {
+            return false;
+        }
+
+        // 0.5 = nose centered between the eye corners (facing forward).
+        // Moves toward 0 or 1 as the nose shifts relative to the eye line
+        // when the head turns.
+        yawRatioOut = (noseTip.x - leftCorner.x) / eyeSpan;
+        return true;
+    } catch (const cv::Exception& e) {
+        std::cerr << "[FacePreprocessor] Yaw estimation failed: " << e.what() << "\n";
+        return false;
+    }
+}
+
 const cv::Size FacePreprocessor::kFaceCropSize = cv::Size(200, 200);

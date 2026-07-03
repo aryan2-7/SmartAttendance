@@ -6,7 +6,8 @@
 #include <filesystem>
 #include <algorithm>
 
-AttendanceMarker::AttendanceMarker() : closeCounter_(0) {
+AttendanceMarker::AttendanceMarker()
+    : closeCounter_(0), rng_(std::random_device{}()) {
     recognizer_ = cv::face::LBPHFaceRecognizer::create(LBPH_RADIUS, LBPH_NEIGHBORS, LBPH_GRID_X, LBPH_GRID_Y);
 }
 
@@ -38,7 +39,7 @@ bool AttendanceMarker::initialize(const std::string& cascadePath, const std::str
     }
 
     if (!preprocessor_.initialize("resources/models/lbfmodel.yaml")) {
-        std::cerr << "[Warning] LBF facemark model failed to load — proceeding without alignment.\n";
+        std::cerr << "[Warning] LBF facemark model failed to load — proceeding without alignment or liveness check.\n";
     }
 
     cap_.open(0);
@@ -62,6 +63,11 @@ void AttendanceMarker::setLabelMap(const std::unordered_map<int, std::pair<std::
 
 void AttendanceMarker::setThresholds(const std::unordered_map<int, double>& thresholds) {
     thresholds_ = thresholds;
+}
+
+std::string AttendanceMarker::pickRandomDirection() {
+    std::uniform_int_distribution<int> dist(0, 1);
+    return dist(rng_) == 0 ? "LEFT" : "RIGHT";
 }
 
 std::string AttendanceMarker::getCurrentTimestamp() {
@@ -141,8 +147,10 @@ void AttendanceMarker::run() {
     checkFile.close();
 
     recentPredictions_.clear();
-    blinkState_.clear();
-    blinkFrameCount_.clear();
+    livenessState_.clear();
+    livenessFrameCount_.clear();
+    livenessPrompt_.clear();
+    livenessTimeoutCounter_.clear();
     lastLoggedTime_.clear();
     loggedLabels_.clear();
 
@@ -238,64 +246,92 @@ void AttendanceMarker::run() {
                 continue;
             }
 
-            // ── Blink liveness test ──────────────────────────────────────────
-            // State machine with consecutive-frame gating to filter cascade noise:
-            //   0 → 1 : eyes open for ≥ OPEN_FRAMES consecutive frames
-            //   1 → 2 : no eyes  for ≥ CLOSED_FRAMES consecutive frames  (the blink)
-            //   2 → 3 : eyes open again for ≥ OPEN_FRAMES consecutive frames (blink complete)
-            constexpr int OPEN_FRAMES   = 3;   // ~100 ms at 30 fps
-            constexpr int CLOSED_FRAMES = 2;   // ~67  ms — a real blink is >100 ms
-
-            cv::Mat faceROIForEyes = grayFrame(face);
-            std::vector<cv::Rect> eyes;
-            cv::Mat upperFace = faceROIForEyes(cv::Rect(0, 0, face.width, face.height / 2));
-            eyeCascade_.detectMultiScale(upperFace, eyes, 1.1, 3, 0, cv::Size(20, 20));
-
-            bool eyesOpen = (eyes.size() >= 2);
-            int  state    = blinkState_[stableLabel];
-            int  &fc      = blinkFrameCount_[stableLabel];   // consecutive-frame counter
-
-            switch (state) {
-                case 0:  // waiting for eyes to be clearly open
-                    if (eyesOpen) {
-                        fc++;
-                        if (fc >= OPEN_FRAMES) { blinkState_[stableLabel] = 1; fc = 0; }
-                    } else {
-                        fc = 0;   // restart count
-                    }
-                    break;
-
-                case 1:  // eyes were open — now waiting for them to close
-                    if (!eyesOpen) {
-                        fc++;
-                        if (fc >= CLOSED_FRAMES) { blinkState_[stableLabel] = 2; fc = 0; }
-                    } else {
-                        fc = 0;
-                    }
-                    break;
-
-                case 2:  // eyes were closed — waiting for them to reopen
-                    if (eyesOpen) {
-                        fc++;
-                        if (fc >= OPEN_FRAMES) { blinkState_[stableLabel] = 3; fc = 0; }
-                    } else {
-                        fc = 0;
-                    }
-                    break;
-
-                default:  // state 3 — blink already completed
-                    break;
+            // Already confirmed + logged this session — no need to keep running liveness
+            if (loggedLabels_.find(stableLabel) != loggedLabels_.end()) {
+                std::stringstream uiText;
+                uiText << name << " - PRESENT (" << std::fixed << std::setprecision(1) << accuracy << "%)";
+                cv::putText(frame, uiText.str(), cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2);
+                closeCounter_++;
+                if (closeCounter_ > 45) {
+                    return;
+                }
+                continue;
             }
 
-            // ── UI + attendance logging ────────────────────────────────────────
-            if (blinkState_[stableLabel] < 3) {
-                // Blink not yet complete — show instruction, do NOT mark attendance
+            // If no facemark model is loaded, we can't estimate yaw — skip
+            // liveness entirely rather than blocking attendance forever
+            // (same graceful-degradation philosophy as face alignment).
+            if (!preprocessor_.isInitialized()) {
                 std::stringstream uiText;
-                uiText << name << " - PLEASE BLINK (" << std::fixed << std::setprecision(1) << accuracy << "%)";
+                uiText << name << " - PRESENT (" << std::fixed << std::setprecision(1) << accuracy << "%)";
+                cv::putText(frame, uiText.str(), cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2);
+                logAttendance(stableLabel, accuracy, "Present");
+                loggedLabels_.insert(stableLabel);
+                closeCounter_++;
+                if (closeCounter_ > 45) {
+                    return;
+                }
+                continue;
+            }
+
+            // ── Head-turn liveness test ──────────────────────────────────────
+            // Assign a random LEFT/RIGHT prompt the first time this person is
+            // seen this session, then require several consecutive frames of a
+            // matching head turn (via LBF-landmark yaw estimate) before
+            // marking attendance.
+            if (livenessPrompt_.find(stableLabel) == livenessPrompt_.end()) {
+                livenessPrompt_[stableLabel] = pickRandomDirection();
+                livenessState_[stableLabel] = LivenessState::WAITING_TURN;
+                livenessFrameCount_[stableLabel] = 0;
+                livenessTimeoutCounter_[stableLabel] = 0;
+            }
+
+            double yawRatio = 0.5;
+            bool yawOk = preprocessor_.computeYawRatio(grayFrame, face, yawRatio);
+
+            std::string direction = livenessPrompt_[stableLabel];
+            bool turnedCorrectDirection = false;
+            if (yawOk) {
+                // NOTE: sign convention (which side is "LEFT" vs "RIGHT") has
+                // not been empirically verified against the mirrored preview
+                // — flip this comparison if the prompt feels reversed during
+                // testing.
+                if (direction == "LEFT") {
+                    turnedCorrectDirection = (yawRatio - 0.5) < -LIVENESS_YAW_TURN_THRESHOLD;
+                } else {
+                    turnedCorrectDirection = (yawRatio - 0.5) > LIVENESS_YAW_TURN_THRESHOLD;
+                }
+            }
+
+            int& lfc = livenessFrameCount_[stableLabel];
+            int& timeoutCount = livenessTimeoutCounter_[stableLabel];
+
+            if (turnedCorrectDirection) {
+                lfc++;
+            } else {
+                lfc = 0;
+            }
+            timeoutCount++;
+
+            if (lfc >= LIVENESS_TURN_FRAMES) {
+                livenessState_[stableLabel] = LivenessState::CONFIRMED;
+            }
+
+            // If the person doesn't complete the turn in time, re-prompt with
+            // a (possibly new) random direction instead of stalling forever.
+            if (timeoutCount > LIVENESS_TIMEOUT_FRAMES && livenessState_[stableLabel] != LivenessState::CONFIRMED) {
+                livenessPrompt_[stableLabel] = pickRandomDirection();
+                direction = livenessPrompt_[stableLabel];
+                lfc = 0;
+                timeoutCount = 0;
+            }
+
+            if (livenessState_[stableLabel] != LivenessState::CONFIRMED) {
+                std::stringstream uiText;
+                uiText << name << " - TURN HEAD " << direction << " (" << std::fixed << std::setprecision(1) << accuracy << "%)";
                 cv::putText(frame, uiText.str(), cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 255), 2);
                 closeCounter_ = 0;
             } else {
-                // Blink verified — mark PRESENT (only once per person per session)
                 std::stringstream uiText;
                 uiText << name << " - PRESENT (" << std::fixed << std::setprecision(1) << accuracy << "%)";
                 cv::putText(frame, uiText.str(), cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2);
