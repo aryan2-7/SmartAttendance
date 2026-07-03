@@ -44,6 +44,7 @@ bool Database::initializeTables() {
         "CREATE TABLE IF NOT EXISTS students ("
         "  id         INTEGER PRIMARY KEY AUTOINCREMENT,"
         "  name       TEXT    NOT NULL,"
+        " modelPath  TEXT    NOT NULL,"
         "  rollNumber INTEGER NOT NULL UNIQUE"
         ");";
 
