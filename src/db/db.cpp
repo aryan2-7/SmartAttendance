@@ -72,6 +72,7 @@ bool Database::addStudent(const std::string& name, int rollNumber) {
     return execute(sql);
 }
 
+
 bool Database::studentExists(int rollNumber) {
     std::string sql =
         "SELECT COUNT(*) FROM students WHERE rollNumber = " + std::to_string(rollNumber) + ";";
@@ -86,6 +87,7 @@ bool Database::studentExists(int rollNumber) {
 
 // ---------- Attendance ----------
 
+
 bool Database::markAttendance(int rollNumber, const std::string& name) {
     // Get today's date and current time
     time_t now = time(nullptr);
@@ -93,19 +95,19 @@ bool Database::markAttendance(int rollNumber, const std::string& name) {
     strftime(dateBuf, sizeof(dateBuf), "%Y-%m-%d", localtime(&now));
     strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", localtime(&now));
 
+
     // Don't allow duplicate marking on the same day
     std::string check =
         "SELECT COUNT(*) FROM attendance WHERE rollNumber = " +
         std::to_string(rollNumber) + " AND date = '" + dateBuf + "';";
+
 
     sqlite3_stmt* stmt;
     sqlite3_prepare_v2(db, check.c_str(), -1, &stmt, nullptr);
     sqlite3_step(stmt);
     int already = sqlite3_column_int(stmt, 0);
     sqlite3_finalize(stmt);
-
-    if (already > 0) return false;  // already marked today
-
+    if (already > 0) return false;  
     std::string sql =
         "INSERT INTO attendance (rollNumber, name, date, time) VALUES (" +
         std::to_string(rollNumber) + ", '" + name + "', '" +
@@ -113,15 +115,14 @@ bool Database::markAttendance(int rollNumber, const std::string& name) {
     return execute(sql);
 }
 
+
 std::vector<AttendanceRecord> Database::getAllRecords() {
     std::vector<AttendanceRecord> records;
     std::string sql =
         "SELECT id, name, rollNumber, date, time FROM attendance "
         "ORDER BY date DESC, time DESC;";
-
     sqlite3_stmt* stmt;
     sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         AttendanceRecord r;
         r.id          = sqlite3_column_int(stmt, 0);
@@ -134,12 +135,12 @@ std::vector<AttendanceRecord> Database::getAllRecords() {
     sqlite3_finalize(stmt);
     return records;
 }
+
 bool Database::checkLogin(const std::string& username,
                           const std::string& password) {
     std::string sql =
         "SELECT COUNT(*) FROM users WHERE username = '" + username +
         "' AND password = '" + password + "';";
-
     sqlite3_stmt* stmt;
     sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
     sqlite3_step(stmt);
@@ -147,7 +148,5 @@ bool Database::checkLogin(const std::string& username,
     sqlite3_finalize(stmt);
     return count > 0;
 }
-
-
 
 
