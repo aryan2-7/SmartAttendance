@@ -2,6 +2,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/objdetect/face.hpp>
 #include <opencv2/videoio.hpp>
+#include <opencv2/objdetect.hpp>
 #include <string>
 #include <vector>
 #include <map>
@@ -40,6 +41,15 @@ private:
     // Blink liveness per detected face slot (index in students_)
     std::map<int, int> blinkState_;
     std::map<int, int> closeCounter_;
+
+    // Frame-skip detection caching
+    int     frameCount_   = 0;
+    cv::Mat lastFaceBox_;
+
+    // Simple blink state machine for liveness detection.
+    // State progression: 0 -> 1 -> 2 -> 3 (blink complete)
+    inline int getBlinkState(int current) { return current + 1; }
+    inline bool isBlinkComplete(int current) { return current == 3; }
 
     bool loadGallery(const std::string &galleryDir);
     bool detectBestFace(const cv::Mat &frame, cv::Mat &faceBox);

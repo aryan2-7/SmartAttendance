@@ -55,11 +55,11 @@ void MainMenu::onRegisterClicked() {
 
 void MainMenu::onMarkAttendanceClicked() {
     AttendanceMarker marker;
-    bool ok = marker.initialize(
-        "resources/models/face_detection_yunet_2023mar.onnx",
-        "resources/models/face_recognition_sface_2021dec.onnx",
-        "resources/trained_models/"
-    );
+    std::string srcDir(PROJECT_SOURCE_DIR);
+    std::string detectorModel  = srcDir + "/resources/models/face_detection_yunet_2023mar.onnx";
+    std::string recognizerModel = srcDir + "/resources/models/face_recognition_sface_2021dec.onnx";
+    std::string galleryDir     = srcDir + "/resources/trained_models/";
+    bool ok = marker.initialize(detectorModel, recognizerModel, galleryDir);
     if (!ok) {
         QMessageBox::critical(this, "Error",
             "Could not initialise face recognition. "

@@ -44,17 +44,12 @@ private:
     cv::Ptr<cv::FaceRecognizerSF> recognizer_;
 
     // Registration state
+    bool            capturing_     = false;
     int             sampleCount_   = 0;
     static constexpr int SAMPLES   = 50;
     std::vector<cv::Mat> embeddings_;   // collected feature vectors
 
-    // Paths (relative to working directory = build/)
-    static constexpr const char* DETECTOR_MODEL  =
-        "resources/models/face_detection_yunet_2023mar.onnx";
-    static constexpr const char* RECOGNIZER_MODEL =
-        "resources/models/face_recognition_sface_2021dec.onnx";
-    static constexpr const char* MODELS_DIR =
-        "resources/trained_models/";
+    // Paths — all resources use PROJECT_SOURCE_DIR at runtime (no POST_BUILD needed)
 
     void saveEmbeddings(const QString &name, const QString &roll);
     bool detectFace(const cv::Mat &frame, cv::Mat &faceBox);

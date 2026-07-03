@@ -109,13 +109,10 @@ target_link_libraries(SmartAttendance PRIVATE
     ${OpenCV_LIBS}
 )
 
-# ─── Copy resources next to exe so relative paths work ────────────────────────
-add_custom_command(TARGET SmartAttendance POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_SOURCE_DIR}/resources"
-        "$<TARGET_FILE_DIR:SmartAttendance>/resources"
+# Pass repo root so trained models are saved/loaded from source (survives rm -rf build)
+target_compile_definitions(SmartAttendance PRIVATE
+    PROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
 )
-
 
 # ─── webcam_test (standalone build sanity check) ──────────────────────────────
 # This is just a quick binary to confirm your webcam + OpenCV setup is working

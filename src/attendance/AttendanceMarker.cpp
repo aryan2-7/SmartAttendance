@@ -18,7 +18,7 @@ bool AttendanceMarker::initialize(const std::string &detectorModel,
                                   const std::string &recognizerModel,
                                   const std::string &galleryDir) {
     detector_ = cv::FaceDetectorYN::create(
-        detectorModel, "", cv::Size(640, 480), 0.9f, 0.3f, 5000);
+        detectorModel, "", cv::Size(320, 240), 0.9f, 0.3f, 5000);
     if (!detector_) { std::cerr << "YuNet load failed\n"; return false; }
 
     recognizer_ = cv::FaceRecognizerSF::create(recognizerModel, "");
@@ -60,18 +60,25 @@ bool AttendanceMarker::loadGallery(const std::string &galleryDir) {
     return !students_.empty();
 }
 
-// ── Detect best face ──────────────────────────────────────────────────────
+// ── Detect best face (runs on 320×240 internal crop for speed) ────────────
 bool AttendanceMarker::detectBestFace(const cv::Mat &frame, cv::Mat &faceBox) {
-    detector_->setInputSize(frame.size());
+    cv::Mat small;
+    cv::resize(frame, small, cv::Size(320, 240));
+    detector_->setInputSize(small.size());
     cv::Mat faces;
-    detector_->detect(frame, faces);
+    detector_->detect(small, faces);
     if (faces.rows < 1) return false;
 
     int best = 0;
     for (int i = 1; i < faces.rows; ++i)
         if (faces.at<float>(i, 14) > faces.at<float>(best, 14)) best = i;
 
-    faceBox = faces.row(best);
+    // Scale face-box coordinates back to original frame resolution
+    double sx = static_cast<double>(frame.cols) / 320.0;
+    double sy = static_cast<double>(frame.rows) / 240.0;
+    faceBox = faces.row(best).clone();
+    for (int c = 0; c < 14; ++c)
+        faceBox.at<float>(0, c) *= (c % 2 == 0) ? sx : sy;
     return true;
 }
 
@@ -101,8 +108,6 @@ int AttendanceMarker::matchFace(const cv::Mat &feat) {
 // ── Liveness check (blink state machine) ─────────────────────────────────
 bool AttendanceMarker::livenessCheck(int idx, const cv::Mat &frame,
                                      const cv::Mat &faceBox) {
-    if (eyeCascade_->empty()) return true; // degrade gracefully if no cascade
-
     int x = static_cast<int>(faceBox.at<float>(0, 0));
     int y = static_cast<int>(faceBox.at<float>(0, 1));
     int w = static_cast<int>(faceBox.at<float>(0, 2));
@@ -115,8 +120,19 @@ bool AttendanceMarker::livenessCheck(int idx, const cv::Mat &frame,
     cv::Mat gray;
     cv::cvtColor(upperHalf, gray, cv::COLOR_BGR2GRAY);
 
+    // Simple eye detection using pre-loaded Haar cascade
     std::vector<cv::Rect> eyes;
-    eyeCascade_->detectMultiScale(gray, eyes, 1.1, 3, 0, {20, 20});
+    static cv::CascadeClassifier eyeCascade;
+    static bool eyeCascadeLoaded = false;
+
+    if (!eyeCascadeLoaded) {
+        std::string cascadePath = std::string(PROJECT_SOURCE_DIR) + "/resources/haarcascades/haarcascade_eye.xml";
+        eyeCascadeLoaded = eyeCascade.load(cascadePath);
+    }
+
+    if (eyeCascadeLoaded) {
+        eyeCascade.detectMultiScale(gray, eyes, 1.1, 3, 0, {20, 20});
+    }
 
     int &state = blinkState_[idx];
     switch (state) {
@@ -143,7 +159,8 @@ void AttendanceMarker::logAttendance(const StudentRecord &s, double score,
     char buf[32];
     std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tm);
 
-    std::ofstream csv("attendance.csv", std::ios::app);
+    std::string csvPath = std::string(PROJECT_SOURCE_DIR) + "/attendance.csv";
+    std::ofstream csv(csvPath, std::ios::app);
     // Write header if file is empty
     if (csv.tellp() == 0)
         csv << "Name,Roll No,Score,Status,Timestamp\n";
@@ -162,8 +179,19 @@ void AttendanceMarker::run() {
         if (frame.empty()) break;
         cv::flip(frame, frame, 1);
 
+        // Frame-skip: detect every 3 frames, re-use cached box in between
         cv::Mat faceBox;
-        if (detectBestFace(frame, faceBox)) {
+        bool detected = false;
+        if (frameCount_ % 3 == 0 || lastFaceBox_.empty()) {
+            detected = detectBestFace(frame, lastFaceBox_);
+            if (!detected) lastFaceBox_ = cv::Mat();
+        } else {
+            detected = !lastFaceBox_.empty();
+        }
+        ++frameCount_;
+
+        if (detected) {
+            faceBox = lastFaceBox_;
             // Align and extract feature
             cv::Mat aligned, feat;
             recognizer_->alignCrop(frame, faceBox, aligned);
@@ -197,11 +225,15 @@ void AttendanceMarker::run() {
                 cv::Scalar  color;
 
                 if (!blinked) {
-                    label = s.name + " - BLINK PLEASE";
+                    char buf[128];
+                    snprintf(buf, sizeof(buf), "%s (Score: %.4f) - BLINK PLEASE", s.name.c_str(), score);
+                    label = buf;
                     color = {0, 255, 255};
                     autoClose = 0;
                 } else {
-                    label = s.name + " - PRESENT";
+                    char buf[128];
+                    snprintf(buf, sizeof(buf), "%s (Score: %.4f) - PRESENT", s.name.c_str(), score);
+                    label = buf;
                     color = {0, 255, 0};
                     logAttendance(s, score, "Present");
                     autoClose++;

@@ -24,11 +24,29 @@ FaceRegistration::FaceRegistration(QWidget *parent) : QWidget(parent) {
     setWindowTitle("Face Registration");
     buildUI();
 
+    cap_.open(0);
+    if (!cap_.isOpened()) {
+        statusLabel_->setText("Failed to open camera.");
+        startBtn_->setEnabled(false);
+    }
+
+    // Load YuNet immediately so face boxes appear in preview
+    {
+        std::string modelPath = std::string(PROJECT_SOURCE_DIR) + "/resources/models/face_detection_yunet_2023mar.onnx";
+        detector_ = cv::FaceDetectorYN::create(
+            modelPath, "", cv::Size(640, 480), 0.9f, 0.3f, 5000);
+        if (!detector_) {
+            statusLabel_->setText("Failed to load YuNet model — no face boxes.");
+        }
+    }
+
     frameTimer_ = new QTimer(this);
     connect(frameTimer_, &QTimer::timeout, this, &FaceRegistration::onFrameTimer);
+    frameTimer_->start(33); // ~30 FPS — always running while window is open
 }
 
 FaceRegistration::~FaceRegistration() {
+    frameTimer_->stop();
     if (cap_.isOpened()) cap_.release();
 }
 
@@ -75,22 +93,16 @@ void FaceRegistration::onStartClicked() {
         return;
     }
 
-    // Load YuNet
-    detector_ = cv::FaceDetectorYN::create(
-        DETECTOR_MODEL, "", cv::Size(640, 480), 0.9f, 0.3f, 5000);
-    if (!detector_) {
-        QMessageBox::critical(this, "Error", "Failed to load YuNet model.");
-        return;
-    }
-
-    // Load SFace (for feature extraction only)
-    recognizer_ = cv::FaceRecognizerSF::create(RECOGNIZER_MODEL, "");
+    // Load SFace (only first time — YuNet was loaded in constructor)
     if (!recognizer_) {
-        QMessageBox::critical(this, "Error", "Failed to load SFace model.");
-        return;
+        std::string modelPath = std::string(PROJECT_SOURCE_DIR) + "/resources/models/face_recognition_sface_2021dec.onnx";
+        recognizer_ = cv::FaceRecognizerSF::create(modelPath, "");
+        if (!recognizer_) {
+            QMessageBox::critical(this, "Error", "Failed to load SFace model.");
+            return;
+        }
     }
 
-    cap_.open(0);
     if (!cap_.isOpened()) {
         QMessageBox::critical(this, "Error", "Cannot open webcam.");
         return;
@@ -99,9 +111,9 @@ void FaceRegistration::onStartClicked() {
     sampleCount_ = 0;
     embeddings_.clear();
     progressBar_->setValue(0);
+    capturing_ = true;
     startBtn_->setEnabled(false);
     statusLabel_->setText("Look at the camera. Collecting samples…");
-    frameTimer_->start(33); // ~30 FPS
 }
 
 // ── Per-frame slot ────────────────────────────────────────────────────────
@@ -112,36 +124,39 @@ void FaceRegistration::onFrameTimer() {
 
     cv::flip(frame, frame, 1); // mirror
 
+    // Always detect and draw the face box (YuNet loaded in constructor)
     cv::Mat faceBox;
     if (detectFace(frame, faceBox)) {
-        // Align & extract feature vector
-        cv::Mat aligned;
-        recognizer_->alignCrop(frame, faceBox, aligned);
-        cv::Mat feat;
-        recognizer_->feature(aligned, feat);
-        embeddings_.push_back(feat.clone());
-        sampleCount_++;
-        progressBar_->setValue(sampleCount_);
-
-        // Draw green box around detected face
         int x = static_cast<int>(faceBox.at<float>(0, 0));
         int y = static_cast<int>(faceBox.at<float>(0, 1));
         int w = static_cast<int>(faceBox.at<float>(0, 2));
         int h = static_cast<int>(faceBox.at<float>(0, 3));
         cv::rectangle(frame, {x, y}, {x + w, y + h}, {0, 255, 0}, 2);
 
-        statusLabel_->setText(
-            QString("Collected %1 / %2").arg(sampleCount_).arg(SAMPLES));
+        // Only collect samples when registration is active
+        if (capturing_ && recognizer_) {
+            cv::Mat aligned;
+            recognizer_->alignCrop(frame, faceBox, aligned);
+            cv::Mat feat;
+            recognizer_->feature(aligned, feat);
+            embeddings_.push_back(feat.clone());
+            sampleCount_++;
+            progressBar_->setValue(sampleCount_);
+
+            statusLabel_->setText(
+                QString("Collected %1 / %2").arg(sampleCount_).arg(SAMPLES));
+
+            if (sampleCount_ >= SAMPLES) {
+                capturing_ = false;
+                saveEmbeddings(nameEdit_->text().trimmed(), rollEdit_->text().trimmed());
+            }
+        }
+    } else if (capturing_) {
+        statusLabel_->setText("No face detected. Look at the camera…");
     }
 
     videoLabel_->setPixmap(matToPixmap(frame).scaled(
         videoLabel_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
-
-    if (sampleCount_ >= SAMPLES) {
-        frameTimer_->stop();
-        cap_.release();
-        saveEmbeddings(nameEdit_->text().trimmed(), rollEdit_->text().trimmed());
-    }
 }
 
 // ── Face detection helper ─────────────────────────────────────────────────
@@ -165,15 +180,13 @@ bool FaceRegistration::detectFace(const cv::Mat &frame, cv::Mat &faceBox) {
 // Format: binary file "<Name>_<Roll>.bin" containing N×128 float32 matrix.
 // Each row is one SFace feature vector.
 void FaceRegistration::saveEmbeddings(const QString &name, const QString &roll) {
-    QDir().mkpath(MODELS_DIR);
+    QString modelsDir = QString::fromUtf8(PROJECT_SOURCE_DIR) + "/resources/trained_models/";
+    QDir().mkpath(modelsDir);
 
     // Filename: "Aryan_Khatri_43.bin"
     QString safeName = name;
     safeName.replace(' ', '_');
-    QString filename = QString("%1%2_%3.bin")
-                           .arg(MODELS_DIR)
-                           .arg(safeName)
-                           .arg(roll);
+    QString filename = modelsDir + safeName + "_" + roll + ".bin";
 
     // Stack all embeddings into one Mat (rows = samples, cols = 128)
     cv::Mat gallery;
@@ -189,7 +202,7 @@ void FaceRegistration::saveEmbeddings(const QString &name, const QString &roll) 
     ofs.close();
 
     statusLabel_->setText(
-        QString("✓ Registered %1 (Roll %2)").arg(name).arg(roll));
+        QString("Registered %1 (Roll %2) — camera preview active.").arg(name).arg(roll));
     startBtn_->setEnabled(true);
 
     emit registrationComplete(name, roll);
