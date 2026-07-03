@@ -6,13 +6,14 @@
 
 | Layer | Technology |
 |-------|-----------|
-| Language | Technology |
-| GUI | Qt6 with Qt5 fallback |
-| Computer Vision | OpenCV and opencv_contrib |
-| Database | SQLite amalgamation |
-| Build | Cmake |
-| Platform | macOS (Aryan), Windows (Rest of the team) |
- 
+| Language | C++17 |
+| GUI | Qt6 (with Qt5 fallback) |
+| Face Detection | YuNet (`cv::FaceDetectorYN` via OpenCV DNN) |
+| Face Recognition | SFace (`cv::FaceRecognizerSF` via OpenCV DNN) |
+| Database | SQLite amalgamation (planned) |
+| Build | CMake |
+| Platform | macOS (Aryan), Windows (rest of team) |
+
 ---
 
 ## Link
@@ -24,99 +25,132 @@ SmartAttendance/
 ├── CMakeLists.txt
 ├── README.md
 ├── .gitignore
+├── .gitattributes                          # Git LFS for ONNX models
+├── attendance.csv                          # gitignored, generated at runtime
 ├── src/
-│   ├── main.cpp                        will be used to compile all modules
+│   ├── main.cpp                            # entry point: shows LoginWindow → MainMenu
 │   ├── auth/
-│   │   ├── LoginWindow.h               ⬜ not started
-│   │   └── LoginWindow.cpp             ⬜ not started
+│   │   ├── LoginWindow.h                   ✅ done
+│   │   └── LoginWindow.cpp                 ✅ done
 │   ├── registration/
-│   │   ├── FaceRegistration.h          ✅ done by Aryan
-│   │   └── FaceRegistration.cpp        ✅ done by Aryan
+│   │   ├── FaceRegistration.h              ✅ done
+│   │   └── FaceRegistration.cpp            ✅ done
 │   ├── attendance/
-│   │   ├── AttendanceMarker.h          ⬜ not started
-│   │   └── AttendanceMarker.cpp        ⬜ not started
+│   │   ├── AttendanceMarker.h              ✅ done
+│   │   └── AttendanceMarker.cpp            ✅ done
+│   ├── MainMenu.h                          ✅ done
+│   ├── MainMenu.cpp                        ✅ done
 │   ├── records/
-│   │   ├── RecordsViewer.h             ⬜ not started
-│   │   └── RecordsViewer.cpp           ⬜ not started
+│   │   ├── RecordsViewer.h                 ⬜ not started
+│   │   └── RecordsViewer.cpp               ⬜ not started
 │   ├── export/
-│   │   ├── CsvExporter.h               ⬜ not started
-│   │   └── CsvExporter.cpp             ⬜ not started
+│   │   ├── CsvExporter.h                   ⬜ not started
+│   │   └── CsvExporter.cpp                 ⬜ not started
 │   └── db/
-│       ├── Database.h                  ⬜ not started
-│       └── Database.cpp                ⬜ not started
+│       ├── Database.h                      ⬜ not started
+│       └── Database.cpp                    ⬜ not started
 ├── resources/
+│   ├── models/                             # ONNX models (Git LFS)
+│   │   ├── face_detection_yunet_2023mar.onnx
+│   │   └── face_recognition_sface_2021dec.onnx
 │   ├── haarcascades/
-│   │   └── haarcascade_frontalface_default.xml
-│   ├── trained_models/                 # .yml files saved here per registered user
+│   │   └── haarcascade_eye.xml             # blink liveness
+│   ├── trained_models/                     # .bin files per registered user
 │   └── icons/
-├── data/
-│   └── attendance.db                   # gitignored, generated at runtime
 └── docs/
-    └── architecture.md                 #Used to keep track of what is happening
+    └── architecture.md
 ```
- 
+
 ---
 
 ## Module status
 
-### ✅ Module 2 — Face Registration (`src/registration/`) 
-- Opens webcam, detects face with Haar cascade
-- Captures 30 grayscale 100×100 samples
-- Trains LBPHFaceRecognizer, saves to `resources/trained_models/<Name>_<Roll>.yml`
-- Qt widget: name input, roll input, progress bar, live preview
-- Emits `registrationComplete(int userId, QString name, QString rollNo)` signal
-- **Not yet connected to database** — signal is just logged in main.cpp for now
+### ✅ Module 1 — Login / Auth (`src/auth/`)
+- Single hardcoded admin password
+- Qt login window shown before everything else
+- On success: shows MainMenu tab widget
+
+### ✅ Module 2 — Face Registration (`src/registration/`)
+- Opens webcam, loads **YuNet** immediately (face box visible from window open)
+- User enters name + roll, clicks Start → loads **SFace** for embedding extraction
+- Captures 50 embeddings (128-d feature vectors) from aligned face crops
+- Averages embeddings, saves to `resources/trained_models/<Name>_<Roll>.bin`
+- Qt widget: name input, roll input, progress bar, live preview with face box
+- Signals: none currently
+
+### ✅ Module 3 — Live Attendance Marking (`src/attendance/`)
+- Opens webcam, loads YuNet + SFace + all `.bin` gallery files
+- **Frame-skip detection**: YuNet runs every 3rd frame (caches last bounding box)
+- **Downscaled detection**: YuNet scans a 320×240 copy → box scaled back to full-res
+- SFace embedding extracted from full-res frame (quality unaffected)
+- Cosine similarity vs gallery — threshold 0.363
+- **Blink liveness**: Haar eye-cascade state machine per detected person
+- Anti-duplicate: 300 s cooldown per roll number
+- Logs to `attendance.csv` with score + timestamp
+- Auto-closes ~1.5 s after a "PRESENT" verdict
+
+### ✅ MainMenu (`src/MainMenu.cpp`)
+- Tab widget with "Register Face", "Mark Attendance", "View Records" (stub), "Export" (stub)
+- Passes `PROJECT_SOURCE_DIR`-based paths to child modules
+- All module paths are absolute at build time — no POST_BUILD copy needed
 
 ### ⬜ Module 0 — Database layer (`src/db/`)
-- Shared by all other modules — we have to build this next
-- Needs tables: `students`, `attendance_records`
-- SQLite amalgamation (single .c/.h drop-in, no external install needed)
-- Can use simple C++ wrapper: addStudent(), markAttendance(), getRecords()
+- Tables planned: `students`, `attendance_records`
+- SQLite amalgamation (single .c/.h drop-in, no external install)
+- Not yet implemented
 
-### ⬜ Module 1 — Login / Auth (`src/auth/`)
-- Simple hardcoded admin password for now (no user accounts)
-- Qt login window shown before anything else
-- On success: show main tab widget
-- On Failure: Prompt to try again
-
-### ⬜ Module 3 — Live Attendance Marking (`src/attendance/`)
-- Opens webcam, runs face detection same as registration
-- For each detected face: loads all .yml models, runs predict()
-- If confidence abhove threshold → mark attendance in DB
-- Anti-duplicate: don't mark twice in same session
-
-### ⬜ Module 4 — Records Viewer (`src/records/`) 
-- Qt table widget pulling from SQLite attendance_records
-- Filter by date / student
-- Basically creates an overview for the Attendance and includes stuff like attendance percentage
+### ⬜ Module 4 — Records Viewer (`src/records/`)
+- Qt table widget pulling from SQLite (or CSV)
+- Filter by date / student, attendance percentage
 
 ### ⬜ Module 5 — CSV Export (`src/export/`)
-- Reads from DB, writes comma-separated file
-- Triggered by a button in the Records Viewer
-- Basically creates an overview for the Attendance and includes stuff like attendance percentage
-
---- 
-
-## Key decisions made
-- LBPH algorithm chosen insted of deep learning as it requrires too many initial images, computational power and is less efficient, our skill level was also considered for this decision
-- Liveness detection explicitly descoped — for now, will come back to this if the project is finished early, very complex
-- One .yml model file per student (name_roll.yml) — no numeric ID needed in filename
-- CASCADE_PATH = `../resources/haarcascades/haarcascade_frontalface_default.xml`
-- MODELS_DIR   = `../resources/trained_models/`
-- Paths are relative to `build/` directory (where the executable runs)
-- SQLite will use the amalgamation approach (drop-in .c + .h, no brew install)
+- Reads from DB, writes CSV
+- Triggered by button in Records Viewer
 
 ---
 
-## Build command (all OS)
+## Key decisions made
+
+### Model format
+- **YuNet + SFace** (ONNX) instead of Haar Cascade + LBPH
+- Better accuracy, no training for detection, single unified pipeline
+- ONE `cv::FaceDetectorYN` model + ONE `cv::FaceRecognizerSF` model for everything
+
+### Gallery storage
+- One `.bin` file per student: `<Name>_<Roll>.bin`
+- Binary format: `[rows(int32), cols(int32), data(float32)…]`
+- Each file stores N × 128 averaged embedding matrix (currently 1 row per person)
+
+### Path resolution
+- `PROJECT_SOURCE_DIR` compile-define set in `CMakeLists.txt`
+- All paths are absolute at compile time — no relative path assumptions
+- No POST_BUILD copy step — resources live only in source tree
+- `attendance.csv` written to project root (survives `rm -rf build`)
+
+### Blink liveness
+- Implemented using `haarcascade_eye.xml` (Haar cascade, same repo)
+- Three-state machine: eyes-open → eyes-closed → eyes-open → verified
+- Runs per-detected-person state tracked by student index
+
+### Frame-skip + downscaled detection
+- YuNet runs on 320×240 internal crop, coordinates scaled back to full-res
+- Detection runs every 3rd frame, cached box reused in between
+- SFace embedding extracted from full-resolution frame (no quality loss)
+
+### Liveness detection
+- Blink state machine implemented (not descoped as earlier planned)
+- Could be disabled by removing the `if (!blinked)` branch
+
+### Build
 ```bash
-mkdir build
-cd build
+mkdir build && cd build
 cmake ..
 cmake --build . -j4
 ```
+No special flags needed — OpenCV from Homebrew includes the DNN models.
+
 ---
 
-## What to change in this file (for teamates)
-When you finish a module, change the status next to the file structure from ⬜ to ✅ and add a one-line summary of what it does
+## What to change in this file (for teammates)
+When you finish a module, change ⬜ to ✅ and add a one-line summary.
 If any major decision is made, update the relevant section.
