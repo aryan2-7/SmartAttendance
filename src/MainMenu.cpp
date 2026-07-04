@@ -4,8 +4,6 @@
 #include <QLabel>
 #include <QMessageBox>
 #include <QDir>
-#include <QInputDialog>
-#include <QFileInfo>
 #include <iostream>
 #include "FaceRegistration.h"
 #include "AttendanceMarker.h"
@@ -31,8 +29,8 @@ MainMenu::MainMenu(QWidget *parent) : QWidget(parent) {
     layout->addWidget(titleLabel);
 
     QPushButton *registerBtn = new QPushButton("Register Face (Qt UI)", this);
-    QPushButton *markBtn = new QPushButton("Mark Attendance (OpenCV)", this);
-    QPushButton *exitBtn = new QPushButton("Exit", this);
+    QPushButton *markBtn     = new QPushButton("Mark Attendance (OpenCV)", this);
+    QPushButton *exitBtn     = new QPushButton("Exit", this);
 
     layout->addWidget(registerBtn);
     layout->addSpacing(10);
@@ -41,8 +39,8 @@ MainMenu::MainMenu(QWidget *parent) : QWidget(parent) {
     layout->addWidget(exitBtn);
 
     connect(registerBtn, &QPushButton::clicked, this, &MainMenu::onRegisterClicked);
-    connect(markBtn, &QPushButton::clicked, this, &MainMenu::onMarkAttendanceClicked);
-    connect(exitBtn, &QPushButton::clicked, this, &MainMenu::close);
+    connect(markBtn,     &QPushButton::clicked, this, &MainMenu::onMarkAttendanceClicked);
+    connect(exitBtn,     &QPushButton::clicked, this, &MainMenu::close);
 }
 
 void MainMenu::onRegisterClicked() {
@@ -54,70 +52,39 @@ void MainMenu::onRegisterClicked() {
 }
 
 void MainMenu::onMarkAttendanceClicked() {
+    // ── Guard: make sure at least one .yml model exists ──────────────────────
+    // AttendanceMarker will auto-discover ALL of them – no manual selection needed.
     QDir modelDir("resources/trained_models/");
-    if (!modelDir.exists()) {
-        modelDir.mkpath(".");
-    }
+    if (!modelDir.exists()) modelDir.mkpath(".");
 
-    QStringList filters;
-    filters << "*.yml";
-    QStringList modelFiles = modelDir.entryList(filters, QDir::Files);
-
+    QStringList modelFiles = modelDir.entryList(QStringList() << "*.yml", QDir::Files);
     if (modelFiles.isEmpty()) {
         QMessageBox::warning(this, "No Models Found",
             "No trained face models (.yml) found in resources/trained_models/.\n\n"
-            "Please register a face first using 'Register Face'.");
+            "Please register at least one face first using 'Register Face'.");
         return;
     }
 
-    QString selectedModel;
-    if (modelFiles.size() == 1) {
-        selectedModel = modelFiles.first();
-    } else {
-        bool ok = false;
-        QString item = QInputDialog::getItem(this, "Select Face Model",
-            "Select the face model to recognize:", modelFiles, 0, false, &ok);
-        if (ok && !item.isEmpty()) {
-            selectedModel = item;
-        } else {
-            return; // User cancelled
-        }
-    }
+    // ── Paths ─────────────────────────────────────────────────────────────────
+    const std::string cascadePath    = "resources/haarcascades/haarcascade_frontalface_default.xml";
+    const std::string eyeCascadePath = "resources/haarcascades/haarcascade_eye.xml";
+    const std::string modelsDir      = "resources/trained_models/";
 
-    // Parse Name and Roll from model filename (e.g. "Shashwot_Karki_36.yml" -> Name: "Shashwot Karki", Roll: "36")
-    QString baseName = QFileInfo(selectedModel).baseName();
-    int lastUnderscore = baseName.lastIndexOf('_');
-    QString rollNo = "Unknown";
-    QString name = baseName;
-    if (lastUnderscore != -1) {
-        rollNo = baseName.mid(lastUnderscore + 1);
-        name = baseName.left(lastUnderscore);
-        name.replace('_', ' ');
-    }
+    std::cout << "Starting Attendance Scanner – loading "
+              << modelFiles.size() << " model(s) automatically...\n";
 
-    std::string cascadePath = "resources/haarcascades/haarcascade_frontalface_default.xml";
-    std::string eyeCascadePath = "resources/haarcascades/haarcascade_eye.xml";
-    std::string modelPath = "resources/trained_models/" + selectedModel.toStdString();
-
-    AttendanceMarker marker;
-    
-    // Populate label map for predictions
-    std::unordered_map<int, std::pair<std::string, std::string>> labelMap;
-    labelMap[1] = { name.toStdString(), rollNo.toStdString() };
-    marker.setLabelMap(labelMap);
-
-    std::cout << "Starting Attendance Scanner for: " << name.toStdString() << " (Roll No: " << rollNo.toStdString() << ")\n";
-
-    // Hide Qt window during OpenCV scanning to keep focus
+    // ── Hide Qt window while OpenCV scanner runs ──────────────────────────────
     this->hide();
 
-    if (marker.initialize(cascadePath, eyeCascadePath, modelPath)) {
-        marker.run();
+    AttendanceMarker marker;
+    if (marker.initialize(cascadePath, eyeCascadePath, modelsDir)) {
+        marker.run();   // blocks until user presses 'q' or closes the window
     } else {
         QMessageBox::critical(this, "Initialization Failed",
-            "Failed to initialize the attendance marker. Make sure camera and cascade files are accessible.");
+            "Failed to initialize the attendance marker.\n"
+            "Make sure the camera is connected and cascade files are in the resources folder.");
     }
 
-    // Show Qt window again
+    // ── Restore Qt window when scanner exits ──────────────────────────────────
     this->show();
 }

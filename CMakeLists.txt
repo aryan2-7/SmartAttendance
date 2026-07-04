@@ -4,6 +4,23 @@ project(SmartAttendance VERSION 1.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# ─── Suppress MSVC warnings from 3rd-party headers ────────────────────────────
+# OpenCV's internal headers (matInt.hpp, lsh_table.h, etc.) trigger thousands
+# of MSVC static-analysis warnings (C26xxx, C6xxx). These are NOT bugs in our
+# code. We mark all vcpkg / OpenCV / Qt includes as "external" so MSVC skips
+# them during analysis and stops reporting them as errors.
+if (MSVC)
+    # Tell MSVC to treat headers pulled in via /external:I as system headers
+    # (suppresses warnings, same behaviour as GCC's -isystem)
+    add_compile_options(
+        /W3                      # keep reasonable warnings for OUR code
+        /EHsc                    # enable C++ exception handling (needed for try/catch)
+        /external:anglebrackets  # treat all <...> includes as external
+        /external:W0             # zero warnings from external headers
+        /wd4996                  # silence deprecated POSIX names (std::localtime etc.)
+    )
+endif()
+
 # Qt needs this to find its generated files (MOC, UIC, RCC) — don't remove
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
@@ -91,6 +108,15 @@ set(SOURCES
 
 # ─── Executable ───────────────────────────────────────────────────────────────
 add_executable(SmartAttendance ${SOURCES})
+
+# Mark vcpkg / OpenCV / Qt includes as SYSTEM so MSVC treats them as external.
+# This is the CMake-idiomatic companion to /external:anglebrackets above.
+get_target_property(_inc SmartAttendance INCLUDE_DIRECTORIES)
+if (MSVC)
+    target_compile_options(SmartAttendance PRIVATE
+        /experimental:external   # enable external-header suppression
+    )
+endif()
 
 target_include_directories(SmartAttendance PRIVATE
     ${OpenCV_INCLUDE_DIRS}
