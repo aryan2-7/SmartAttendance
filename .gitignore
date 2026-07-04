@@ -1,5 +1,28 @@
+# Visual Studio
 .vs/
-.DS_Store
+*.user
+*.suo
+*.userossc
+*.sln.docstates
+*.db
+*.opendb
+
+# CMake and Build Outputs
 build/
-docs/AI_AGENT_GUIDE.md
-resources/trained_models/
+out/
+bin/
+lib/
+CMakeFiles/
+CMakeCache.txt
+CMakeSettings.json.user
+build_vs.bat
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# User Attendance Records (keep local data off Git)
+attendance.csv
+*.db-journal
+*.sqlite-journal
+

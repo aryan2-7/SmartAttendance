@@ -254,9 +254,9 @@ void AttendanceMarker::run() {
         // ── Process each detected face ────────────────────────────────────────
         for (const auto& face : faces) {
 
-            // Resize ROI to 100×100 – must match what FaceRegistration saves
+            // Resize ROI to 200x200 – must match what FaceRegistration saves
             cv::Mat faceROI;
-            cv::resize(grayFrame(face), faceROI, cv::Size(100, 100));
+            cv::resize(grayFrame(face), faceROI, cv::Size(200, 200));
 
             double confidence = 0.0;
             int personIdx = predictBestMatch(faceROI, confidence);

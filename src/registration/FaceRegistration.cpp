@@ -225,7 +225,7 @@ bool FaceRegistration::detectLargestFace(const cv::Mat& frame, cv::Rect& faceRec
 //  -preprocessFace() to prepare face images for LBPH training
 cv::Mat FaceRegistration::preprocessFace(const cv::Mat &grayFaceCrop){
     cv::Mat resized, equalized;
-    cv::resize(grayFaceCrop, resized, cv::Size(100, 100)); //LBPH works best with consistent size, we using 100x100
+    cv::resize(grayFaceCrop, resized, cv::Size(200, 200)); //LBPH works best with consistent size, we using 200x200
     cv::equalizeHist(resized, equalized); //Again equalization to improve contrast for better LBPH feature extraction
     return equalized; //Return the preprocessed face image ready for LBPH training
 }
