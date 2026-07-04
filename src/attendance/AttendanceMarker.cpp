@@ -46,6 +46,11 @@ bool AttendanceMarker::initialize(const std::string& cascadePath,
         std::cerr << "[Error] Could not load eye Haar Cascade from: " << eyeCascadePath << "\n";
         return false;
     }
+    std::string smileCascadePath = "resources/haarcascades/haarcascade_smile.xml";
+    if (!smileCascade_.load(smileCascadePath)) {
+        std::cerr << "[Error] Could not load smile Haar Cascade from: " << smileCascadePath << "\n";
+        return false;
+    }
 
     // ── Auto-discover .yml models ─────────────────────────────────────────────
     if (!fs::exists(modelsDir)) {
@@ -316,70 +321,95 @@ void AttendanceMarker::run() {
                 stabilizationStart_[personIdx]  = now;
                 stabilizationActive_[personIdx] = true;
                 blinkState_[personIdx]          = 0; // fresh blink-state for this window
-                std::cout << "[Timer] Started 3-second window for: " << name << "\n";
+                std::cout << "[Timer] Started 5-second window for: " << name << "\n";
             }
 
-            // Compute elapsed time inside this stabilisation window
+            // Compute elapsed time inside this stabilisation window (5-second total limit)
             double elapsedSecs = std::chrono::duration_cast<std::chrono::milliseconds>(
                                      now - stabilizationStart_.at(personIdx)).count() / 1000.0;
-            double remainingSecs = std::max(0.0, 3.0 - elapsedSecs);
+            double remainingSecs = std::max(0.0, 5.0 - elapsedSecs);
 
-            // ── Blink detection (upper half of face ROI) ──────────────────────
-            // State machine: 0→open(1)→closed(2)→open again(3=blinked)
-            {
+            int& bState = blinkState_[personIdx];
+
+            // ── Blink Detection (State 0 -> 1 -> 2 -> 3) ──────────────────────
+            if (bState < 3) {
                 cv::Mat upperFace = grayFrame(face)(
                     cv::Rect(0, 0, face.width, face.height / 2));
                 std::vector<cv::Rect> eyes;
                 eyeCascade_.detectMultiScale(upperFace, eyes, 1.1, 3, 0, cv::Size(20, 20));
 
-                int& bState = blinkState_[personIdx];
                 if      (bState == 0 && eyes.size() >= 2) bState = 1; // eyes open
                 else if (bState == 1 && eyes.size() == 0) bState = 2; // eyes closed (blink)
-                else if (bState == 2 && eyes.size() >= 1) bState = 3; // eyes reopened → blinked!
+                else if (bState == 2 && eyes.size() >= 1) bState = 3; // eyes reopened → blink done!
             }
 
-            bool blinked = (blinkState_[personIdx] >= 3);
+            // ── Smile Detection (State 3 -> 4) ────────────────────────────────
+            if (bState == 3) {
+                // Look for smile inside the lower half of faceROI (which is 200x200)
+                cv::Mat lowerFace = faceROI(cv::Rect(0, faceROI.rows / 2, faceROI.cols, faceROI.rows / 2));
+                std::vector<cv::Rect> smiles;
+                // scaleFactor=1.2, minNeighbors=25 is highly robust to avoid false triggers
+                smileCascade_.detectMultiScale(lowerFace, smiles, 1.2, 25, 0, cv::Size(20, 20));
+                if (!smiles.empty()) {
+                    bState = 4; // Smile detected! Challenge passed!
+                }
+            }
 
-            // ── Still inside 3-second window ──────────────────────────────────
-            if (elapsedSecs < 3.0) {
+            // ── Inside 5-second challenge window ──────────────────────────────
+            if (elapsedSecs < 5.0) {
                 std::stringstream ss;
-                if (!blinked) {
-                    // Prompt the student to blink while the countdown runs
+                if (bState < 3) {
+                    // Step 1: Prompt student to blink
                     ss << name << " - BLINK NOW! "
                        << std::fixed << std::setprecision(1) << remainingSecs << "s  ("
                        << accuracy << "%)";
                     cv::putText(frame, ss.str(), cv::Point(face.x, face.y - 10),
-                                cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 255), 2);
-                } else {
-                    // Blink already detected – show positive feedback during remaining wait
-                    ss << name << " - BLINKED! "
+                                cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 255), 2); // Yellow/Cyan
+                }
+                else if (bState == 3) {
+                    // Step 2: Prompt student to smile
+                    ss << name << " - SMILE NOW! "
                        << std::fixed << std::setprecision(1) << remainingSecs << "s  ("
                        << accuracy << "%)";
                     cv::putText(frame, ss.str(), cv::Point(face.x, face.y - 10),
-                                cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 0), 2);
+                                cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 0, 255), 2); // Magenta
+                }
+                else if (bState == 4) {
+                    // Step 3: Challenge complete! Show green feedback.
+                    // Wait at least 3 seconds before marking present to let the accuracy stabilize
+                    if (elapsedSecs < 3.0) {
+                        ss << name << " - VERIFIED! SAVING... "
+                           << std::fixed << std::setprecision(1) << (3.0 - elapsedSecs) << "s  ("
+                           << accuracy << "%)";
+                        cv::putText(frame, ss.str(), cv::Point(face.x, face.y - 10),
+                                    cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 0), 2); // Green
+                    } else {
+                        ss << name << " - PRESENT (" << std::fixed << std::setprecision(1) << accuracy << "%)";
+                        cv::putText(frame, ss.str(), cv::Point(face.x, face.y - 10),
+                                    cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2);
+                        logAttendance(personIdx, accuracy, "Present");
+                    }
                 }
             }
-            // ── 3-second window over – commit the decision ─────────────────────
+            // ── Timeout: 5-second challenge window expired ───────────────────
             else {
-                if (blinked) {
-                    // ✅ PRESENT: accuracy >= 30% AND blink verified
+                if (bState == 4) {
+                    // Passed both steps, write to logs
                     std::stringstream ss;
-                    ss << name << " - PRESENT ("
-                       << std::fixed << std::setprecision(1) << accuracy << "%)";
+                    ss << name << " - PRESENT (" << std::fixed << std::setprecision(1) << accuracy << "%)";
                     cv::putText(frame, ss.str(), cv::Point(face.x, face.y - 10),
                                 cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2);
                     logAttendance(personIdx, accuracy, "Present");
                 } else {
-                    // ❌ ABSENT: accuracy >= 30% but no blink (liveness check failed)
+                    // Failed to complete blink and smile in time
                     std::stringstream ss;
-                    ss << name << " - ABSENT (no blink) ("
-                       << std::fixed << std::setprecision(1) << accuracy << "%)";
+                    ss << name << " - ABSENT (no smile/blink) (" << std::fixed << std::setprecision(1) << accuracy << "%)";
                     cv::putText(frame, ss.str(), cv::Point(face.x, face.y - 10),
                                 cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 0, 255), 2);
                     logAttendance(personIdx, accuracy, "Absent");
                 }
 
-                // Reset stabilisation so the person can be re-checked if they move away
+                // Reset challenge so they can try again if they walk out/return
                 stabilizationActive_[personIdx] = false;
             }
         } // end face loop

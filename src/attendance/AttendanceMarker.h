@@ -39,6 +39,7 @@ private:
     cv::VideoCapture        cap_;
     cv::CascadeClassifier   faceCascade_;
     cv::CascadeClassifier   eyeCascade_;
+    cv::CascadeClassifier   smileCascade_;
 
     // One recognizer per registered student (keyed by index into this vector)
     std::vector<PersonModel> models_;
