@@ -3,6 +3,11 @@
 #include <iostream>
 #include <ctime>   
 
+//Helper to hash passwords (not secure, but better than plain text)
+std::string hashPassword(const std::string& password) {
+    std::hash<std::string> hasher;
+    return std::to_string(hasher(password));
+}
 
 Database::Database(const std::string& dbPath) : db(nullptr) {
     int rc = sqlite3_open(dbPath.c_str(), &db);
@@ -19,6 +24,8 @@ Database::~Database() {
         sqlite3_close(db);
     }
 }
+
+//Helper to execute SQL command and check for errors
 bool Database::execute(const std::string& sql) {
     char* errMsg = nullptr;
     int rc = sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errMsg);
@@ -30,6 +37,7 @@ bool Database::execute(const std::string& sql) {
     return true;
 }
 
+// ---------- Students ----------
 bool Database::initializeTables() {
     // users table — for the login window
     std::string users =
@@ -44,7 +52,7 @@ bool Database::initializeTables() {
         "CREATE TABLE IF NOT EXISTS students ("
         "  id         INTEGER PRIMARY KEY AUTOINCREMENT,"
         "  name       TEXT    NOT NULL,"
-        " modelPath  TEXT    NOT NULL,"
+        "  modelPath  TEXT    NOT NULL,"
         "  rollNumber INTEGER NOT NULL UNIQUE"
         ");";
 
@@ -61,7 +69,7 @@ bool Database::initializeTables() {
     
      std::string defaultUser =
         "INSERT OR IGNORE INTO users (username, password) "
-        "VALUES ('admin', 'admin123');";
+        "VALUES ('admin', '" + hashPassword("admin123") + "');";
 
      return execute(users) && execute(students) &&  execute(attendance) && execute(defaultUser);
 
@@ -70,7 +78,9 @@ bool Database::addStudent(const std::string& name, int rollNumber) {
     std::string sql =
         "INSERT OR IGNORE INTO students (name, rollNumber) VALUES ('" +
         name + "', " + std::to_string(rollNumber) + ");";
-    return execute(sql);
+    std::string userSql =
+        "INSERT OR IGNORE INTO users (username, password) VALUES ('" + name + "', '" + hashPassword("default123") + "');";
+    return execute(sql) && execute(userSql);
 }
 
 
@@ -141,7 +151,7 @@ bool Database::checkLogin(const std::string& username,
                           const std::string& password) {
     std::string sql =
         "SELECT COUNT(*) FROM users WHERE username = '" + username +
-        "' AND password = '" + password + "';";
+        "' AND password = '" + hashPassword(password) + "';";
     sqlite3_stmt* stmt;
     sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
     sqlite3_step(stmt);
