@@ -1,0 +1,14 @@
+<RCC>
+    <qresource prefix="/fonts">
+        <file>fonts/Montserrat-VariableFont_wght.ttf</file>
+        <file>fonts/Playfair-VariableFont_opsz,wdth,wght.ttf</file>
+        <file>fonts/SortsMillGoudy-Regular.ttf</file>
+    </qresource>
+    <qresource prefix="/icons">
+        <file>assets/icons/admin_panel_settings.svg</file>
+        <file>assets/icons/arrow_forward.svg</file>
+        <file>assets/icons/face.svg</file>
+        <file>assets/icons/how_to_reg.svg</file>
+        <file>assets/icons/person_add.svg</file>
+    </qresource>
+</RCC>

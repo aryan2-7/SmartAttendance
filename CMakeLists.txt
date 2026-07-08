@@ -12,10 +12,15 @@ set(CMAKE_AUTORCC ON)
 
 # ─── Qt ───────────────────────────────────────────────────────────────────────
 # Try Qt6 first, fall back to Qt5 if not found (for teammates on older setups)
-find_package(Qt6 COMPONENTS Core Widgets QUIET)
+find_package(Qt6 COMPONENTS Core Widgets SvgWidgets Svg QUIET)
 if (Qt6_FOUND)
     message(STATUS "Using Qt6")
-    set(QT_LIBS Qt6::Core Qt6::Widgets)
+    set(QT_LIBS
+        Qt6::Core
+        Qt6::Widgets
+        Qt6::Svg
+        Qt6::SvgWidgets
+    )
 else()
     find_package(Qt5 COMPONENTS Core Widgets REQUIRED)
     message(STATUS "Qt6 not found, falling back to Qt5")
@@ -64,32 +69,60 @@ endif()
 # Add each module's .cpp here as you finish them.
 # Commented-out lines = not implemented yet, uncomment when ready.
 set(SOURCES
-    src/main.cpp
+
 
     # Module 1 – Login (Subhechha)
-    # src/auth/LoginWindow.cpp
+
+        # Welcome Window
+       # src/auth/WelcomeWindow.cpp
+        #Font Manager
+        src/auth/FontManager.cpp
 
     # Module 2 – Face Registration (Shashwot + Aryan)
-    src/registration/FaceRegistration.cpp
+    #src/registration/FaceRegistration.cpp
+   # src/registration/StudentRegistrationWindow.cpp
 
     # Module 3 – Attendance Marking (Shashwot + Aryan)
-    # src/attendance/AttendanceMarker.cpp
+    #src/attendance/AttendanceMarker.cpp
+   # src/attendance/AttendanceWindow.cpp
 
     # Module 4 – Records Viewer (Prachika)
-    # src/records/RecordsViewer.cpp
+    #src/records/RecordsViewer.cpp
 
     # Module 5 – CSV Export
-    # src/export/CsvExporter.cpp
+    #src/export/CsvExporter.cpp
 
     # Shared – Database layer (Dilasha)
-    # src/db/Database.cpp
+    #src/db/Database.cpp
+
+    #module 6- Administrator/Dashboard
+    #src/admin/AdministratorWindow.cpp
+    src/admin/AdminDashboard.cpp
 
     ${SQLITE_SOURCES}
 )
 
 
 # ─── Executable ───────────────────────────────────────────────────────────────
-add_executable(SmartAttendance ${SOURCES})
+add_executable(SmartAttendance ${SOURCES}
+       # src/auth/WelcomeWindow.h
+      #  src/auth/WelcomeWindow.cpp
+        src/auth/FontManager.cpp
+        src/auth/FontManager.h
+       #src/registration/StudentRegistrationWindow.h
+      # src/registration/StudentRegistrationWindow.cpp
+       # src/attendance/AttendanceWindow.h
+       #src/attendance/AttendanceWindow.cpp
+       # src/admin/AdministratorWindow.h
+       # src/admin/AdministratorWindow.cpp
+       src/admin/AdminDashboard.h
+       src/admin/AdminDashboard.cpp
+        fonts.qrc
+        src/main.cpp
+        src/admin/Attendance.h src/admin/Attendance.cpp
+
+    )
+
 
 target_include_directories(SmartAttendance PRIVATE
     ${OpenCV_INCLUDE_DIRS}
@@ -101,6 +134,7 @@ target_include_directories(SmartAttendance PRIVATE
     src/records
     src/export
     src/db
+    src/admin
 )
 
 target_link_libraries(SmartAttendance PRIVATE

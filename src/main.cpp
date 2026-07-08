@@ -1,14 +1,16 @@
 #include <QApplication>
-#include "FaceRegistration.h"
+
+#include "auth/FontManager.h"
+#include "admin/AdminDashboard.h"
 
 int main(int argc, char *argv[])
 {
-    QApplication app(argc, argv);
+    QApplication a(argc, argv);
 
-    FaceRegistration window;
-    window.setWindowTitle("Face Registration");
-    window.resize(800, 650);
-    window.show();
+    a.setFont(FontManager::appFont(12));
 
-    return app.exec();
+    AdminDashboard w;
+    w.show();
+
+    return a.exec();
 }
