@@ -1,5 +1,6 @@
 #include "AttendanceWindow.h"
 #include "../auth/FontManager.h"
+#include "../auth/WelcomeWindow.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -31,6 +32,12 @@ void AttendanceWindow::setupUI()
     QHBoxLayout *headerLayout = new QHBoxLayout();
 
     QPushButton *backButton = new QPushButton("← Back");
+    connect(backButton, &QPushButton::clicked, this, [this]()
+            {
+                auto *window = new WelcomeWindow();
+                window->show();
+                this->close();
+            });
     backButton->setFixedSize(110, 38);
     backButton->setFont(FontManager::buttonFont(11));
 

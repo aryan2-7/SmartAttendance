@@ -1,6 +1,8 @@
 #include "AdminDashboard.h"
 #include "../auth/FontManager.h"
-
+#include "ManageStudentsWindow.h"
+#include "AttendanceRecordsWindow.h"
+#include "AdministratorWindow.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFrame>
@@ -10,6 +12,7 @@
 #include <QDate>
 #include <QGraphicsDropShadowEffect>
 #include <QProgressBar>
+#include <QSizePolicy>
 
 
 AdminDashboard::AdminDashboard(QWidget *parent)
@@ -28,7 +31,10 @@ QWidget{
     background:#0F172A;
     color:white;
 }
-
+QLabel{
+    background:transparent;
+    border:none;
+}
 QLineEdit{
     background:#111827;
     border:1px solid #334155;
@@ -66,6 +72,12 @@ QPushButton:hover{
     QHBoxLayout *header = new QHBoxLayout();
 
     QPushButton *backButton = new QPushButton("← Back");
+    connect(backButton, &QPushButton::clicked, this, [this]()
+            {
+                auto *window = new AdministratorWindow();
+                window->show();
+                this->close();
+            });
     backButton->setFixedSize(105,38);
 
     QVBoxLayout *titleLayout = new QVBoxLayout();
@@ -82,16 +94,12 @@ QPushButton:hover{
     titleLayout->addWidget(title);
     titleLayout->addWidget(date);
 
-    QLineEdit *search = new QLineEdit();
-    search->setPlaceholderText("🔍  Search students...");
-    search->setFixedWidth(280);
-    search->setFixedHeight(42);
 
     header->addWidget(backButton);
     header->addSpacing(25);
     header->addLayout(titleLayout);
     header->addStretch();
-    header->addWidget(search);
+
 
     mainLayout->addLayout(header);
 
@@ -130,13 +138,13 @@ QFrame{
     QVBoxLayout *circleLayout = new QVBoxLayout();
 
     QFrame *circle = new QFrame();
-    circle->setFixedSize(130,130);
+    circle->setFixedSize(120,120);
 
     circle->setStyleSheet(R"(
 QFrame{
-    background:#111827;
-    border:10px solid #38BDF8;
-    border-radius:70px;
+    background:transparent;
+    border:8px solid #38BDF8;
+    border-radius:60px;
 }
 )");
 
@@ -167,8 +175,14 @@ QFrame{
 
     // Right Side
     QVBoxLayout *statsLayout = new QVBoxLayout();
+    statsLayout->setContentsMargins(15,0,0,0);
+    statsLayout->setSpacing(12);
 
     QLabel *attendanceTitle = new QLabel("Today's Attendance");
+    attendanceTitle->setMinimumWidth(260);
+    attendanceTitle->setMinimumHeight(40);
+    attendanceTitle->setSizePolicy(QSizePolicy::Expanding,
+                                   QSizePolicy::Preferred);
     attendanceTitle->setFont(FontManager::headingFont(18));
     attendanceTitle->setStyleSheet("border:none;");
     statsLayout->addWidget(attendanceTitle);
@@ -345,7 +359,6 @@ QFrame{
 
         QLabel *avatar = new QLabel("👤");
         avatar->setStyleSheet("font-size:24px;");
-
         QLabel *name = new QLabel(students[i]);
         name->setFont(FontManager::buttonFont(14));
 
@@ -419,8 +432,15 @@ manageCard->setStyleSheet(R"(
     QVBoxLayout *manageLayout = new QVBoxLayout(manageCard);
     manageLayout->setContentsMargins(10,10,10,10);
 
-    manageLayout->setSpacing(3);
-    QLabel *manageIcon = new QLabel("👥");
+    manageLayout->setSpacing(8);
+    QLabel *manageIcon = new QLabel();
+    manageIcon->setFixedSize(36,36);
+    manageIcon->setStyleSheet(R"(
+QLabel{
+    background:#2563EB;
+    border-radius:18px;
+}
+)");
     manageIcon->setAlignment(Qt::AlignCenter);
     manageIcon->setStyleSheet("font-size:18px;");
 
@@ -440,7 +460,13 @@ manageCard->setStyleSheet(R"(
 );
 
     QPushButton *manageButton = new QPushButton("Open");
-    manageButton->setMinimumHeight(32);
+    connect(manageButton, &QPushButton::clicked, this, [this]()
+            {
+                auto *window = new ManageStudentsWindow();
+                window->show();
+                this->close();
+            });
+    manageButton->setMinimumHeight(20);
 
     manageButton->setStyleSheet(R"(
 QPushButton{
@@ -486,9 +512,16 @@ QPushButton:hover{
 
     QVBoxLayout *recordLayout = new QVBoxLayout(recordCard);
     recordLayout->setContentsMargins(10,10,10,10);
-    recordLayout->setSpacing(3);
+    recordLayout->setSpacing(8);
 
-    QLabel *recordIcon = new QLabel("📋");
+    QLabel *recordIcon = new QLabel();
+    recordIcon->setFixedSize(36,36);
+    recordIcon->setStyleSheet(R"(
+QLabel{
+    background:#38BDF8;
+    border-radius:18px;
+}
+)");
     recordIcon->setAlignment(Qt::AlignCenter);
     recordIcon->setStyleSheet("font-size:18px;");
 
@@ -508,7 +541,13 @@ QPushButton:hover{
         );
 
     QPushButton *recordButton = new QPushButton("Open");
-    recordButton->setMinimumHeight(32);
+    connect(recordButton, &QPushButton::clicked, this, [this]()
+            {
+                auto *window = new AttendanceRecordsWindow();
+                window->show();
+                this->close();
+            });
+    recordButton->setMinimumHeight(20);
 
     recordButton->setStyleSheet(R"(
 QPushButton{
@@ -553,9 +592,16 @@ QPushButton:hover{
 
     QVBoxLayout *exportLayout = new QVBoxLayout(exportCard);
     exportLayout->setContentsMargins(10,10,10,10);
-    exportLayout->setSpacing(3);
+    exportLayout->setSpacing(8);
 
-    QLabel *exportIcon = new QLabel("📤");
+    QLabel *exportIcon = new QLabel();
+    exportIcon->setFixedSize(36,36);
+    exportIcon->setStyleSheet(R"(
+QLabel{
+    background:#10B981;
+    border-radius:18px;
+}
+)");
     exportIcon->setAlignment(Qt::AlignCenter);
     exportIcon->setStyleSheet("font-size:18px;");
 
@@ -575,7 +621,7 @@ QPushButton:hover{
         );
 
     QPushButton *exportButton = new QPushButton("Open");
-    exportButton->setMinimumHeight(32);
+    exportButton->setMinimumHeight(20);
 
     exportButton->setStyleSheet(R"(
 QPushButton{

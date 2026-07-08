@@ -74,17 +74,17 @@ set(SOURCES
     # Module 1 – Login (Subhechha)
 
         # Welcome Window
-       # src/auth/WelcomeWindow.cpp
+        src/auth/WelcomeWindow.cpp
         #Font Manager
         src/auth/FontManager.cpp
 
     # Module 2 – Face Registration (Shashwot + Aryan)
     #src/registration/FaceRegistration.cpp
-   # src/registration/StudentRegistrationWindow.cpp
+    src/registration/StudentRegistrationWindow.cpp
 
     # Module 3 – Attendance Marking (Shashwot + Aryan)
     #src/attendance/AttendanceMarker.cpp
-   # src/attendance/AttendanceWindow.cpp
+   src/attendance/AttendanceWindow.cpp
 
     # Module 4 – Records Viewer (Prachika)
     #src/records/RecordsViewer.cpp
@@ -96,8 +96,11 @@ set(SOURCES
     #src/db/Database.cpp
 
     #module 6- Administrator/Dashboard
-    #src/admin/AdministratorWindow.cpp
-    src/admin/AdminDashboard.cpp
+  src/admin/AdministratorWindow.cpp
+   src/admin/AdminDashboard.cpp
+    src/admin/ManageStudentsWindow.cpp
+   src/admin/AttendanceRecordsWindow.cpp
+
 
     ${SQLITE_SOURCES}
 )
@@ -105,21 +108,26 @@ set(SOURCES
 
 # ─── Executable ───────────────────────────────────────────────────────────────
 add_executable(SmartAttendance ${SOURCES}
-       # src/auth/WelcomeWindow.h
-      #  src/auth/WelcomeWindow.cpp
+       src/auth/WelcomeWindow.h
+      src/auth/WelcomeWindow.cpp
         src/auth/FontManager.cpp
         src/auth/FontManager.h
-       #src/registration/StudentRegistrationWindow.h
-      # src/registration/StudentRegistrationWindow.cpp
-       # src/attendance/AttendanceWindow.h
-       #src/attendance/AttendanceWindow.cpp
-       # src/admin/AdministratorWindow.h
-       # src/admin/AdministratorWindow.cpp
-       src/admin/AdminDashboard.h
-       src/admin/AdminDashboard.cpp
+       src/registration/StudentRegistrationWindow.h
+       src/registration/StudentRegistrationWindow.cpp
+       src/attendance/AttendanceWindow.h
+      src/attendance/AttendanceWindow.cpp
+       src/admin/AdministratorWindow.h
+       src/admin/AdministratorWindow.cpp
+      src/admin/AdminDashboard.h
+      src/admin/AdminDashboard.cpp
         fonts.qrc
         src/main.cpp
-        src/admin/Attendance.h src/admin/Attendance.cpp
+       # src/admin/Attendance.h
+        #src/admin/Attendance.cpp
+       src/admin/ManageStudentsWindow.h
+       src/admin/ManageStudentsWindow.cpp
+       src/admin/AttendanceRecordsWindow.h
+       src/admin/AttendanceRecordsWindow.cpp
 
     )
 

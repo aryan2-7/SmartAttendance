@@ -1,5 +1,8 @@
 #include "WelcomeWindow.h"
 #include "FontManager.h"
+#include "../registration/StudentRegistrationWindow.h"
+#include "../attendance/AttendanceWindow.h"
+#include "../admin/AdministratorWindow.h"
 
 #include <QApplication>
 #include <QFontDatabase>
@@ -134,14 +137,14 @@ void WelcomeWindow::setupUI()
     // Subtitle
     QLabel *subtitle = new QLabel("Face Recognition Attendance System");
     subtitle->setAlignment(Qt::AlignCenter);
-    subtitle->setFont(FontManager::bodyFont(18));
+    subtitle->setFont(FontManager::appFont(18));
     subtitle->setStyleSheet("color:#CBD5E1; background:transparent;");
     titleLayout->addWidget(subtitle);
 
     // Tagline
     QLabel *tagline = new QLabel("Secure  •  Contactless  •  Intelligent");
     tagline->setAlignment(Qt::AlignCenter);
-    tagline->setFont(FontManager::bodyFont(15));
+    tagline->setFont(FontManager::appFont(15));
     tagline->setStyleSheet("color:#94A3B8; background:transparent;");
     titleLayout->addWidget(tagline);
 
@@ -235,7 +238,7 @@ QPushButton:hover{
 
     studentDesc->setWordWrap(true);
     studentDesc->setAlignment(Qt::AlignCenter);
-    studentDesc->setFont(FontManager::bodyFont(12));
+    studentDesc->setFont(FontManager::appFont(12));
 
     studentLayout->addWidget(studentDesc);
 
@@ -321,7 +324,7 @@ QPushButton:hover{
 
     attendanceDesc->setWordWrap(true);
     attendanceDesc->setAlignment(Qt::AlignCenter);
-    attendanceDesc->setFont(FontManager::bodyFont(12));
+    attendanceDesc->setFont(FontManager::appFont(12));
 
     attendanceLayout->addWidget(attendanceDesc);
 
@@ -404,7 +407,7 @@ QPushButton:hover{
 
     adminDesc->setWordWrap(true);
     adminDesc->setAlignment(Qt::AlignCenter);
-    adminDesc->setFont(FontManager::bodyFont(12));
+    adminDesc->setFont(FontManager::appFont(12));
 
     adminLayout->addWidget(adminDesc);
 
@@ -438,6 +441,30 @@ QPushButton:hover{
     cardsLayout->addWidget(adminCard);
     mainLayout->addLayout(cardsLayout);
 
+    //--------------------------------------------------
+    // Navigation
+    //--------------------------------------------------
+
+    connect(studentButton, &QPushButton::clicked, this, [this]()
+            {
+                auto *window = new StudentRegistrationWindow();
+                window->show();
+                this->close();
+            });
+
+    connect(attendanceButton, &QPushButton::clicked, this, [this]()
+            {
+                auto *window = new AttendanceWindow();
+                window->show();
+                this->close();
+            });
+
+    connect(adminButton, &QPushButton::clicked, this, [this]()
+            {
+                auto *window = new AdministratorWindow();
+                window->show();
+                this->close();
+            });
 
     mainLayout->addStretch();
 
@@ -452,10 +479,8 @@ QPushButton:hover{
 
     footer->setAlignment(Qt::AlignCenter);
 
-    footer->setStyleSheet(R"(
-footer->setFont(FontManager::bodyFont(13));
-footer->setStyleSheet("color:#64748B;");
-    )");
+    footer->setFont(FontManager::appFont(13));
+    footer->setStyleSheet("color:#64748B;");
 
     mainLayout->addWidget(footer);
 }

@@ -1,7 +1,7 @@
 #include <QApplication>
 
 #include "auth/FontManager.h"
-#include "admin/AdminDashboard.h"
+#include "auth/WelcomeWindow.h"
 
 int main(int argc, char *argv[])
 {
@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
 
     a.setFont(FontManager::appFont(12));
 
-    AdminDashboard w;
+    WelcomeWindow w;
     w.show();
 
     return a.exec();

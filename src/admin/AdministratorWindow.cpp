@@ -9,6 +9,8 @@
 #include <QPushButton>
 #include <QGraphicsDropShadowEffect>
 #include <QCheckBox>
+#include "../auth/WelcomeWindow.h"
+#include "AdminDashboard.h"
 
 AdministratorWindow::AdministratorWindow(QWidget *parent)
     : QWidget(parent)
@@ -36,6 +38,12 @@ QWidget{
     QHBoxLayout *header = new QHBoxLayout();
 
     backButton = new QPushButton("← Back");
+    connect(backButton, &QPushButton::clicked, this, [this]()
+            {
+                auto *window = new WelcomeWindow();
+                window->show();
+                this->close();
+            });
     backButton->setFixedSize(110,40);
 
     backButton->setStyleSheet(R"(
@@ -130,6 +138,12 @@ QLineEdit:focus{
 
 
     loginButton = new QPushButton("Login");
+    connect(loginButton, &QPushButton::clicked, this, [this]()
+            {
+                auto *window = new AdminDashboard();
+                window->show();
+                this->close();
+            });
     loginButton->setMinimumHeight(45);
 
     loginButton->setStyleSheet(R"(
