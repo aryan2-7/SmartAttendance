@@ -1,15 +1,15 @@
 #include "AttendanceRecordsWindow.h"
 #include "../auth/FontManager.h"
 #include "AdminDashboard.h"
-
+#include "../theme/Theme.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QFrame>
 #include <QLabel>
 #include <QPushButton>
 #include <QLineEdit>
 #include <QDateEdit>
-#include <QDate>
 #include <QDate>
 #include <QTableWidget>
 #include <QHeaderView>
@@ -26,47 +26,60 @@ void AttendanceRecordsWindow::setupUI()
 {
     setWindowTitle("Attendance Records");
     resize(1400,850);
+    setObjectName("AttendanceRecordsWindow");
 
-    setStyleSheet(R"(
-QWidget{
-    background:#0F172A;
-    color:white;
+    setStyleSheet(QString(R"(
+
+QWidget#AttendanceRecordsWindow{
+    background:%1;
 }
+
+QFrame#card{
+    background:%3;
+    border:1px solid %2;
+    border-radius:16px;
+}
+
 QTableWidget{
-    background:#111827;
-    border:1px solid #334155;
+    background:%6;
+    border:1px solid %2;
     border-radius:14px;
-    gridline-color:#334155;
-    color:white;
+    gridline-color:%2;
+    color:%4;
     font-size:14px;
-    selection-background-color:#2563EB;
+    selection-background-color:%7;
 }
 
 QHeaderView::section{
-    background:#1E293B;
-    color:white;
+    background:%3;
+    color:%4;
     border:none;
     padding:10px;
     font-weight:bold;
 }
 
 QTableWidget::item{
-    background:#111827;
-    color:white;
+    background:%6;
+    color:%4;
 }
 
 QPushButton{
-    background:#1E293B;
-    color:white;
-    border:1px solid #334155;
+    background:%3;
+    color:%4;
+    border:1px solid %2;
     border-radius:10px;
     padding:10px 18px;
 }
+
+QPushButton:hover{
+    background:%5;
+}
+
 QLineEdit,
 QDateEdit{
-    background:#111827;
-    color:white;
-    border:1px solid #334155;
+    background:%6;
+    color:%4;
+    border:1px solid %2;
     border-radius:10px;
     padding:10px;
     font-size:14px;
@@ -74,18 +87,23 @@ QDateEdit{
 
 QLineEdit:focus,
 QDateEdit:focus{
-    border:1px solid #2563EB;
-}
-
-QPushButton:hover{
-    background:#334155;
+    border:1px solid %7;
 }
 
 QLabel{
     border:none;
     background:transparent;
+    color:%4;
 }
-)");
+
+)")
+                      .arg(Theme::Card)
+                      .arg(Theme::Border)
+                      .arg(Theme::Surface)
+                      .arg(Theme::Primary)
+                      .arg(Theme::Hover)
+                      .arg(Theme::Input)
+                      .arg(Theme::Gold));
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(30,25,30,25);
@@ -109,6 +127,7 @@ QLabel{
 
     QLabel *title = new QLabel("Attendance Records");
     title->setFont(FontManager::headingFont(26));
+    title->setStyleSheet(QString("color:%1;").arg(Theme::Gold));
 
     header->addWidget(backButton);
     header->addSpacing(20);
@@ -116,6 +135,19 @@ QLabel{
     header->addStretch();
 
     mainLayout->addLayout(header);
+
+    //--------------------------------------------------
+    // Card container (search/filter + table live inside this,
+    // styled to match the boxed "data" panel used across the app)
+    //--------------------------------------------------
+
+    QFrame *card = new QFrame();
+    card->setObjectName("card");
+
+    QVBoxLayout *cardLayout = new QVBoxLayout(card);
+    cardLayout->setContentsMargins(20,20,20,20);
+    cardLayout->setSpacing(20);
+
     //--------------------------------------------------
     // Search & Filter
     //--------------------------------------------------
@@ -139,7 +171,7 @@ QLabel{
     filterLayout->addWidget(dateFilter);
     filterLayout->addWidget(refreshButton);
 
-    mainLayout->addLayout(filterLayout);
+    cardLayout->addLayout(filterLayout);
     //--------------------------------------------------
     // Attendance Table
     //--------------------------------------------------
@@ -172,7 +204,10 @@ QLabel{
     table->horizontalHeader()->setSectionResizeMode(4,QHeaderView::ResizeToContents);
     table->horizontalHeader()->setSectionResizeMode(5,QHeaderView::ResizeToContents);
 
-    mainLayout->addWidget(table);
+    cardLayout->addWidget(table);
+
+    // Card is fully built now — add it to the page
+    mainLayout->addWidget(card);
     //--------------------------------------------------
     // Sample Attendance Records
     //--------------------------------------------------
@@ -219,11 +254,11 @@ QLabel{
         QTableWidgetItem *status = table->item(row,5);
 
         if(status->text()=="Present")
-            status->setForeground(QBrush(QColor("#22C55E")));
+            status->setForeground(QBrush(QColor(Theme::Success)));
         else if(status->text()=="Late")
-            status->setForeground(QBrush(QColor("#FACC15")));
+            status->setForeground(QBrush(QColor(Theme::Warning)));
         else
-            status->setForeground(QBrush(QColor("#EF4444")));
+            status->setForeground(QBrush(QColor(Theme::Danger)));
 
         status->setTextAlignment(Qt::AlignCenter);
     }

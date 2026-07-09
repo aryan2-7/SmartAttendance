@@ -1,6 +1,7 @@
 #include "ManageStudentsWindow.h"
 #include "../auth/FontManager.h"
 #include "AdminDashboard.h"
+#include "../theme/Theme.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -21,59 +22,77 @@ void ManageStudentsWindow::setupUI()
 {
     setWindowTitle("Manage Students");
     resize(1400,850);
+    setObjectName("ManageStudentsWindow");
 
-    setStyleSheet(R"(
-QWidget{
-    background:#0F172A;
-    color:white;
+    setStyleSheet(QString(R"(
+
+QWidget#ManageStudentsWindow{
+    background:%1;
+}
+
+QFrame#card{
+    background:%3;
+    border:1px solid %2;
+    border-radius:16px;
 }
 
 QPushButton{
-    background:#1E293B;
-    color:white;
-    border:1px solid #334155;
+    background:%3;
+    color:%4;
+    border:1px solid %2;
     border-radius:10px;
     padding:10px 18px;
 }
 
 QPushButton:hover{
-    background:#334155;
+    background:%5;
 }
 
 QLabel{
     border:none;
     background:transparent;
+    color:%4;
 }
+
 QLineEdit{
-    background:#111827;
-    color:white;
-    border:1px solid #334155;
+    background:%6;
+    color:%4;
+    border:1px solid %2;
     border-radius:10px;
     padding:10px;
     font-size:14px;
 }
 
 QLineEdit:focus{
-    border:1px solid #2563EB;
+    border:1px solid %7;
 }
+
 QTableWidget{
-    background:#111827;
-    border:1px solid #334155;
+    background:%6;
+    border:1px solid %2;
     border-radius:14px;
-    gridline-color:#334155;
-    selection-background-color:#2563EB;
-    color:white;
+    gridline-color:%2;
+    selection-background-color:%7;
+    color:%4;
     font-size:14px;
 }
 
 QHeaderView::section{
-    background:#1E293B;
-    color:white;
+    background:%3;
+    color:%4;
     border:none;
     padding:10px;
     font-weight:bold;
 }
-)");
+
+)")
+                      .arg(Theme::Card)
+                      .arg(Theme::Border)
+                      .arg(Theme::Surface)
+                      .arg(Theme::Primary)
+                      .arg(Theme::Hover)
+                      .arg(Theme::Input)
+                      .arg(Theme::Gold));
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(30,25,30,25);
@@ -96,7 +115,7 @@ QHeaderView::section{
     backButton->setFixedSize(100,40);
 
     QLabel *title = new QLabel("Manage Students");
-    title->setFont(FontManager::headingFont(26));
+    title->setStyleSheet(QString("color:%1;").arg(Theme::Gold));
 
     header->addWidget(backButton);
     header->addSpacing(20);
@@ -104,6 +123,19 @@ QHeaderView::section{
     header->addStretch();
 
     mainLayout->addLayout(header);
+
+    //--------------------------------------------------
+    // Card container (search bar + table live inside this,
+    // styled to match the boxed "data" panel in the reference)
+    //--------------------------------------------------
+
+    QFrame *card = new QFrame();
+    card->setObjectName("card");
+
+    QVBoxLayout *cardLayout = new QVBoxLayout(card);
+    cardLayout->setContentsMargins(20,20,20,20);
+    cardLayout->setSpacing(20);
+
     //--------------------------------------------------
     // Search Bar
     //--------------------------------------------------
@@ -114,6 +146,21 @@ QHeaderView::section{
     QLineEdit *searchBox = new QLineEdit();
     searchBox->setPlaceholderText("Search Student...");
     searchBox->setFixedHeight(42);
+    searchBox->setStyleSheet(QString(R"(
+QLineEdit{
+    background:%1;
+    border:1px solid %2;
+    color:%3;
+}
+
+QLineEdit::placeholder{
+    color:%4;
+}
+)")
+                                 .arg(Theme::Input)
+                                 .arg(Theme::Border)
+                                 .arg(Theme::Primary)
+                                 .arg(Theme::Muted));
 
     QPushButton *refreshButton = new QPushButton("Refresh");
     refreshButton->setFixedSize(110,42);
@@ -121,14 +168,14 @@ QHeaderView::section{
     searchLayout->addWidget(searchBox);
     searchLayout->addWidget(refreshButton);
 
-    mainLayout->addLayout(searchLayout);
+    cardLayout->addLayout(searchLayout);
     //--------------------------------------------------
     // Student Table
     //--------------------------------------------------
 
     QTableWidget *table = new QTableWidget();
 
-    table->setColumnCount(6);
+    table->setColumnCount(5);
 
     table->setHorizontalHeaderLabels({
         "Student ID",
@@ -147,7 +194,10 @@ QHeaderView::section{
     table->setSelectionBehavior(QAbstractItemView::SelectRows);
     table->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
-    mainLayout->addWidget(table);
+    cardLayout->addWidget(table);
+
+    // Card is fully built now — add it to the page
+    mainLayout->addWidget(card);
     //--------------------------------------------------
     // Sample Data
     //--------------------------------------------------
@@ -178,11 +228,11 @@ QHeaderView::section{
     {
         QTableWidgetItem *editItem = new QTableWidgetItem("Edit");
         editItem->setTextAlignment(Qt::AlignCenter);
-        editItem->setForeground(QBrush(QColor("#3B82F6")));
+        editItem->setForeground(QBrush(QColor(Theme::Gold)));
 
         QTableWidgetItem *deleteItem = new QTableWidgetItem("Delete");
         deleteItem->setTextAlignment(Qt::AlignCenter);
-        deleteItem->setForeground(QBrush(QColor("#EF4444")));
+        deleteItem->setForeground(QBrush(QColor(Theme::Danger)));
 
         table->setItem(row,3,editItem);
         table->setItem(row,4,deleteItem);
@@ -194,10 +244,11 @@ QHeaderView::section{
     table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
 
     QLabel *totalStudents = new QLabel("Total Registered Students : 5");
-    totalStudents->setStyleSheet(
-        "color:#94A3B8;"
-        "font-size:14px;"
-        );
+    totalStudents->setStyleSheet(QString(
+                                     "color:%1;"
+                                     "font-size:14px;"
+                                     )
+                                     .arg(Theme::Secondary));
 
     mainLayout->addWidget(totalStudents);
 

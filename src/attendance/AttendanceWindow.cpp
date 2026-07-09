@@ -1,6 +1,7 @@
 #include "AttendanceWindow.h"
 #include "../auth/FontManager.h"
 #include "../auth/WelcomeWindow.h"
+#include "../theme/Theme.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -18,7 +19,8 @@ AttendanceWindow::AttendanceWindow(QWidget *parent)
 void AttendanceWindow::setupUI()
 {
     // Window Background
-    setStyleSheet("background-color:#11182D;");
+    setObjectName("AttendanceWindow");
+    setStyleSheet(QString("QWidget#AttendanceWindow{background:%1;}").arg(Theme::Card));
 
     // Main Layout
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
@@ -42,21 +44,25 @@ void AttendanceWindow::setupUI()
     backButton->setFont(FontManager::buttonFont(11));
 
     backButton->setStyleSheet(
-        "QPushButton{"
-        "background:#232D42;"
-        "color:white;"
-        "border:1px solid #38435D;"
-        "border-radius:10px;"
-        "padding:8px;"
-        "}"
-        "QPushButton:hover{"
-        "background:#2E3952;"
-        "}"
+        QString("QPushButton{"
+                "background:%1;"
+                "color:%2;"
+                "border:1px solid %3;"
+                "border-radius:10px;"
+                "padding:8px;"
+                "}"
+                "QPushButton:hover{"
+                "background:%4;"
+                "}")
+            .arg(Theme::Surface)
+            .arg(Theme::Primary)
+            .arg(Theme::Border)
+            .arg(Theme::Hover)
         );
 
     QLabel *title = new QLabel("Smart Attendance");
     title->setFont(FontManager::headingFont(24));
-    title->setStyleSheet("color:white;");
+    title->setStyleSheet(QString("color:%1;").arg(Theme::Gold));
     title->setAlignment(Qt::AlignCenter);
 
     headerLayout->addWidget(backButton);
@@ -72,7 +78,7 @@ void AttendanceWindow::setupUI()
 
     QLabel *pageTitle = new QLabel("Mark Attendance");
     pageTitle->setFont(FontManager::headingFont(22));
-    pageTitle->setStyleSheet("color:white;");
+    pageTitle->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
     pageTitle->setAlignment(Qt::AlignCenter);
 
     mainLayout->addWidget(pageTitle);
@@ -81,7 +87,7 @@ void AttendanceWindow::setupUI()
         new QLabel("Date: " + QDate::currentDate().toString("dd MMMM yyyy"));
 
     dateLabel->setFont(FontManager::appFont(12));
-    dateLabel->setStyleSheet("color:#A8B3C7;");
+    dateLabel->setStyleSheet(QString("color:%1;").arg(Theme::Secondary));
     dateLabel->setAlignment(Qt::AlignCenter);
 
     mainLayout->addWidget(dateLabel);
@@ -94,11 +100,13 @@ void AttendanceWindow::setupUI()
     cameraCard->setFixedSize(540, 500);
 
     cameraCard->setStyleSheet(
-        "QFrame{"
-        "background:#232D42;"
-        "border:1px solid #38435D;"
-        "border-radius:18px;"
-        "}"
+        QString("QFrame{"
+                "background:%1;"
+                "border:1px solid %2;"
+                "border-radius:18px;"
+                "}")
+            .arg(Theme::Surface)
+            .arg(Theme::Border)
         );
 
     QVBoxLayout *cameraLayout = new QVBoxLayout(cameraCard);
@@ -114,11 +122,14 @@ void AttendanceWindow::setupUI()
     cameraPlaceholder->setAlignment(Qt::AlignCenter);
 
     cameraPlaceholder->setStyleSheet(
-        "background:#141C33;"
-        "border:2px dashed #3467E8;"
-        "border-radius:20px;"
-        "font-size:72px;"
-        "color:#64748B;"
+        QString("background:%1;"
+                "border:2px dashed %2;"
+                "border-radius:20px;"
+                "font-size:72px;"
+                "color:%3;")
+            .arg(Theme::Input)
+            .arg(Theme::Gold)
+            .arg(Theme::Muted)
         );
 
     cameraLayout->addStretch();
@@ -132,11 +143,13 @@ void AttendanceWindow::setupUI()
     statusLabel->setFixedWidth(230);
 
     statusLabel->setStyleSheet(
-        "background:#163A2B;"
-        "color:#6EE7B7;"
-        "padding:8px;"
-        "border-radius:14px;"
-        "font-weight:bold;"
+        QString("background:%1;"
+                "color:%2;"
+                "padding:8px;"
+                "border-radius:14px;"
+                "font-weight:bold;")
+            .arg(Theme::Card)
+            .arg(Theme::Success)
         );
 
     cameraLayout->addWidget(statusLabel,0,Qt::AlignCenter);
@@ -153,11 +166,13 @@ void AttendanceWindow::setupUI()
     logCard->setFixedWidth(520);
 
     logCard->setStyleSheet(
-        "QFrame{"
-        "background:#232D42;"
-        "border:1px solid #38435D;"
-        "border-radius:18px;"
-        "}"
+        QString("QFrame{"
+                "background:%1;"
+                "border:1px solid %2;"
+                "border-radius:18px;"
+                "}")
+            .arg(Theme::Surface)
+            .arg(Theme::Border)
         );
 
     QVBoxLayout *logLayout = new QVBoxLayout(logCard);
@@ -168,10 +183,11 @@ void AttendanceWindow::setupUI()
     QLabel *line1 =
         new QLabel("00:00:00   Ready to mark attendance");
     line1->setStyleSheet(
-        "color:#4ADE80;"
-        "font-family:Consolas;"
-        "font-size:14px;"
-        "font-weight:bold;"
+        QString("color:%1;"
+                "font-family:Consolas;"
+                "font-size:14px;"
+                "font-weight:bold;")
+            .arg(Theme::Success)
         );
 
     logLayout->addWidget(line1);

@@ -101,6 +101,10 @@ set(SOURCES
     src/admin/ManageStudentsWindow.cpp
    src/admin/AttendanceRecordsWindow.cpp
 
+   #module 7-Theme
+   src/theme/Theme.h
+
+
 
     ${SQLITE_SOURCES}
 )
@@ -122,12 +126,12 @@ add_executable(SmartAttendance ${SOURCES}
       src/admin/AdminDashboard.cpp
         fonts.qrc
         src/main.cpp
-       # src/admin/Attendance.h
-        #src/admin/Attendance.cpp
        src/admin/ManageStudentsWindow.h
        src/admin/ManageStudentsWindow.cpp
        src/admin/AttendanceRecordsWindow.h
        src/admin/AttendanceRecordsWindow.cpp
+       src/theme/Theme.h
+     #  src/theme/Theme.cpp
 
     )
 
@@ -143,6 +147,7 @@ target_include_directories(SmartAttendance PRIVATE
     src/export
     src/db
     src/admin
+    src/theme
 )
 
 target_link_libraries(SmartAttendance PRIVATE

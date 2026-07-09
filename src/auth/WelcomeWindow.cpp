@@ -1,5 +1,6 @@
 #include "WelcomeWindow.h"
 #include "FontManager.h"
+#include "../theme/Theme.h"
 #include "../registration/StudentRegistrationWindow.h"
 #include "../attendance/AttendanceWindow.h"
 #include "../admin/AdministratorWindow.h"
@@ -39,15 +40,19 @@ void WelcomeWindow::setupUI()
 
     setMinimumSize(1300,850);
 
-    setStyleSheet(R"(
+    setObjectName("WelcomeWindow");
 
-    QWidget
+    setStyleSheet(QString(R"(
+
+    QWidget#WelcomeWindow
     {
-        background:#0F172A;
-        color:white;
+        background:%1;
+        color:%2;
     }
 
-    )");
+    )")
+                      .arg(Theme::Card)
+                      .arg(Theme::Primary));
 
 
 
@@ -75,15 +80,15 @@ void WelcomeWindow::setupUI()
 
     QLabel *status = new QLabel("  ●  SYSTEM ONLINE  ");
 
-    status->setStyleSheet(R"(
+    status->setStyleSheet(QString(R"(
 
     QLabel{
 
-        background:#1E293B;
+        background:%1;
 
-        color:#22C55E;
+        color:%2;
 
-        border:1px solid #334155;
+        border:1px solid %3;
 
         border-radius:15px;
 
@@ -95,7 +100,10 @@ void WelcomeWindow::setupUI()
 
     }
 
-    )");
+    )")
+                              .arg(Theme::Surface)
+                              .arg(Theme::Success)
+                              .arg(Theme::Border));
 
     topBar->addWidget(status);
 
@@ -131,21 +139,21 @@ void WelcomeWindow::setupUI()
     QLabel *title = new QLabel("SMART ATTENDANCE");
     title->setAlignment(Qt::AlignCenter);
     title->setFont(FontManager::titleFont(52));
-    title->setStyleSheet("color:white; background:transparent;");
+    title->setStyleSheet(QString("color:%1; background:transparent;").arg(Theme::Primary));
     titleLayout->addWidget(title);
 
     // Subtitle
     QLabel *subtitle = new QLabel("Face Recognition Attendance System");
     subtitle->setAlignment(Qt::AlignCenter);
     subtitle->setFont(FontManager::appFont(18));
-    subtitle->setStyleSheet("color:#CBD5E1; background:transparent;");
+    subtitle->setStyleSheet(QString("color:%1; background:transparent;").arg(Theme::Secondary));
     titleLayout->addWidget(subtitle);
 
     // Tagline
     QLabel *tagline = new QLabel("Secure  •  Contactless  •  Intelligent");
     tagline->setAlignment(Qt::AlignCenter);
     tagline->setFont(FontManager::appFont(15));
-    tagline->setStyleSheet("color:#94A3B8; background:transparent;");
+    tagline->setStyleSheet(QString("color:%1; background:transparent;").arg(Theme::Muted));
     titleLayout->addWidget(tagline);
 
     // Shadow
@@ -157,7 +165,9 @@ void WelcomeWindow::setupUI()
 
     shadow->setOffset(0,0);
 
-    shadow->setColor(QColor(59,130,246,150));
+    QColor glow(Theme::Gold);
+    glow.setAlpha(150);
+    shadow->setColor(glow);
 
     titleWidget->setGraphicsEffect(shadow);
 
@@ -187,31 +197,37 @@ void WelcomeWindow::setupUI()
     QFrame *studentCard = new QFrame;
     studentCard->setFixedSize(340, 360);
 
-    studentCard->setStyleSheet(R"(
+    studentCard->setStyleSheet(QString(R"(
 QFrame{
-    background:#1E293B;
-    border:1px solid #334155;
+    background:%1;
+    border:1px solid %2;
     border-radius:20px;
 }
 
 QLabel{
     background:transparent;
     border:none;
-    color:white;
+    color:%3;
 }
 
 QPushButton{
-    background:#2563EB;
-    color:white;
+    background:%4;
+    color:%5;
     border:none;
     border-radius:12px;
     padding:10px;
 }
 
 QPushButton:hover{
-    background:#1D4ED8;
+    background:%6;
 }
-)");
+)")
+                                   .arg(Theme::Surface)
+                                   .arg(Theme::Border)
+                                   .arg(Theme::Primary)
+                                   .arg(Theme::Gold)
+                                   .arg(Theme::Card)
+                                   .arg(Theme::Warning));
 
     QVBoxLayout *studentLayout = new QVBoxLayout(studentCard);
     studentLayout->setContentsMargins(25,25,25,25);
@@ -247,18 +263,21 @@ QPushButton:hover{
 
     studentButton->setMinimumHeight(45);
 
-    studentButton->setStyleSheet(R"(
+    studentButton->setStyleSheet(QString(R"(
 QPushButton{
-    background:#2563EB;
-    color:white;
+    background:%1;
+    color:%2;
     border:none;
     border-radius:12px;
     padding:10px;
 }
 QPushButton:hover{
-    background:#1D4ED8;
+    background:%3;
 }
-)");
+)")
+                                     .arg(Theme::Gold)
+                                     .arg(Theme::Card)
+                                     .arg(Theme::Warning));
 
     studentButton->setFont(FontManager::buttonFont(12));
 
@@ -273,31 +292,37 @@ QPushButton:hover{
     QFrame *attendanceCard = new QFrame;
     attendanceCard->setFixedSize(340, 360);
 
-    attendanceCard->setStyleSheet(R"(
+    attendanceCard->setStyleSheet(QString(R"(
 QFrame{
-    background:#1E293B;
-    border:1px solid #334155;
+    background:%1;
+    border:1px solid %2;
     border-radius:20px;
 }
 
 QLabel{
     background:transparent;
     border:none;
-    color:white;
+    color:%3;
 }
 
 QPushButton{
-    background:#10B981;
-    color:white;
+    background:%4;
+    color:%5;
     border:none;
     border-radius:12px;
     padding:10px;
 }
 
 QPushButton:hover{
-    background:#059669;
+    background:%6;
 }
-)");
+)")
+                                      .arg(Theme::Surface)
+                                      .arg(Theme::Border)
+                                      .arg(Theme::Primary)
+                                      .arg(Theme::Success)
+                                      .arg(Theme::Card)
+                                      .arg(Theme::Hover));
 
     QVBoxLayout *attendanceLayout = new QVBoxLayout(attendanceCard);
     attendanceLayout->setContentsMargins(25,25,25,25);
@@ -334,18 +359,21 @@ QPushButton:hover{
     attendanceButton->setMinimumHeight(45);
     attendanceButton->setFont(FontManager::buttonFont(12));
 
-    attendanceButton->setStyleSheet(R"(
+    attendanceButton->setStyleSheet(QString(R"(
 QPushButton{
-    background:#10B981;
-    color:white;
+    background:%1;
+    color:%2;
     border:none;
     border-radius:12px;
     padding:10px;
 }
 QPushButton:hover{
-    background:#059669;
+    background:%3;
 }
-)");
+)")
+                                        .arg(Theme::Success)
+                                        .arg(Theme::Card)
+                                        .arg(Theme::Hover));
 
     attendanceLayout->addWidget(attendanceButton);
 
@@ -356,31 +384,37 @@ QPushButton:hover{
     QFrame *adminCard = new QFrame;
     adminCard->setFixedSize(340, 360);
 
-    adminCard->setStyleSheet(R"(
+    adminCard->setStyleSheet(QString(R"(
 QFrame{
-    background:#1E293B;
-    border:1px solid #334155;
+    background:%1;
+    border:1px solid %2;
     border-radius:20px;
 }
 
 QLabel{
     background:transparent;
     border:none;
-    color:white;
+    color:%3;
 }
 
 QPushButton{
-    background:#F59E0B;
-    color:white;
+    background:%4;
+    color:%5;
     border:none;
     border-radius:12px;
     padding:10px;
 }
 
 QPushButton:hover{
-    background:#D97706;
+    background:%6;
 }
-)");
+)")
+                                 .arg(Theme::Surface)
+                                 .arg(Theme::Border)
+                                 .arg(Theme::Primary)
+                                 .arg(Theme::Warning)
+                                 .arg(Theme::Card)
+                                 .arg(Theme::Gold));
 
     QVBoxLayout *adminLayout = new QVBoxLayout(adminCard);
     adminLayout->setContentsMargins(25,25,25,25);
@@ -417,19 +451,22 @@ QPushButton:hover{
     adminButton->setMinimumHeight(45);
     adminButton->setFont(FontManager::buttonFont(12));
 
-    adminButton->setStyleSheet(R"(
+    adminButton->setStyleSheet(QString(R"(
 QPushButton{
-    background:#F59E0B;
-    color:white;
+    background:%1;
+    color:%2;
     border:none;
     border-radius:12px;
     padding:10px;
 }
 
 QPushButton:hover{
-    background:#D97706;
+    background:%3;
 }
-)");
+)")
+                                   .arg(Theme::Warning)
+                                   .arg(Theme::Card)
+                                   .arg(Theme::Gold));
 
     adminLayout->addWidget(adminButton);
 
@@ -480,7 +517,7 @@ QPushButton:hover{
     footer->setAlignment(Qt::AlignCenter);
 
     footer->setFont(FontManager::appFont(13));
-    footer->setStyleSheet("color:#64748B;");
+    footer->setStyleSheet(QString("color:%1;").arg(Theme::Muted));
 
     mainLayout->addWidget(footer);
 }

@@ -1,5 +1,6 @@
 #include "AdministratorWindow.h"
 #include "../auth/FontManager.h"
+#include "../theme/Theme.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -22,13 +23,16 @@ void AdministratorWindow::setupUI()
 {
     setWindowTitle("Administrator Login");
     resize(900, 650);
+    setObjectName("AdministratorWindow");
 
-    setStyleSheet(R"(
-QWidget{
-    background:#0F172A;
-    color:white;
+    setStyleSheet(QString(R"(
+QWidget#AdministratorWindow{
+    background:%1;
+    color:%2;
 }
-)");
+)")
+                      .arg(Theme::Card)
+                      .arg(Theme::Primary));
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(30,30,30,30);
@@ -46,20 +50,25 @@ QWidget{
             });
     backButton->setFixedSize(110,40);
 
-    backButton->setStyleSheet(R"(
+    backButton->setStyleSheet(QString(R"(
 QPushButton{
-    background:#1E293B;
-    border:1px solid #334155;
+    background:%1;
+    border:1px solid %2;
     border-radius:10px;
-    color:white;
+    color:%3;
 }
 QPushButton:hover{
-    background:#334155;
+    background:%4;
 }
-)");
+)")
+                                  .arg(Theme::Surface)
+                                  .arg(Theme::Border)
+                                  .arg(Theme::Primary)
+                                  .arg(Theme::Hover));
 
     QLabel *systemTitle = new QLabel("Smart Attendance");
     systemTitle->setFont(FontManager::headingFont(22));
+    systemTitle->setStyleSheet(QString("color:%1;").arg(Theme::Gold));
 
     header->addWidget(backButton);
     header->addStretch();
@@ -74,13 +83,15 @@ QPushButton:hover{
     QFrame *card = new QFrame();
     card->setFixedSize(420,430);
 
-    card->setStyleSheet(R"(
+    card->setStyleSheet(QString(R"(
 QFrame{
-    background:#1E293B;
-    border:1px solid #334155;
+    background:%1;
+    border:1px solid %2;
     border-radius:18px;
 }
-)");
+)")
+                            .arg(Theme::Surface)
+                            .arg(Theme::Border));
 
     auto shadow = new QGraphicsDropShadowEffect;
     shadow->setBlurRadius(30);
@@ -100,6 +111,7 @@ QFrame{
     QLabel *title = new QLabel("Administrator Login");
     title->setAlignment(Qt::AlignCenter);
     title->setFont(FontManager::headingFont(20));
+    title->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
     cardLayout->addWidget(title);
 
     QLabel *subtitle = new QLabel(
@@ -107,7 +119,7 @@ QFrame{
         );
     subtitle->setAlignment(Qt::AlignCenter);
     subtitle->setWordWrap(true);
-    subtitle->setStyleSheet("color:#94A3B8;");
+    subtitle->setStyleSheet(QString("color:%1;").arg(Theme::Secondary));
     cardLayout->addWidget(subtitle);
 
     usernameEdit = new QLineEdit();
@@ -117,18 +129,22 @@ QFrame{
     passwordEdit->setPlaceholderText("Password");
     passwordEdit->setEchoMode(QLineEdit::Password);
 
-    QString editStyle = R"(
+    QString editStyle = QString(R"(
 QLineEdit{
-    background:#0F172A;
-    border:1px solid #475569;
+    background:%1;
+    border:1px solid %2;
     border-radius:10px;
     padding:12px;
-    color:white;
+    color:%3;
 }
 QLineEdit:focus{
-    border:1px solid #3B82F6;
+    border:1px solid %4;
 }
-)";
+)")
+                            .arg(Theme::Input)
+                            .arg(Theme::Border)
+                            .arg(Theme::Primary)
+                            .arg(Theme::Gold);
 
     usernameEdit->setStyleSheet(editStyle);
     passwordEdit->setStyleSheet(editStyle);
@@ -146,19 +162,22 @@ QLineEdit:focus{
             });
     loginButton->setMinimumHeight(45);
 
-    loginButton->setStyleSheet(R"(
+    loginButton->setStyleSheet(QString(R"(
 QPushButton{
-    background:#2563EB;
-    color:white;
+    background:%1;
+    color:%2;
     border:none;
     border-radius:10px;
     font-size:15px;
     font-weight:bold;
 }
 QPushButton:hover{
-    background:#1D4ED8;
+    background:%3;
 }
-)");
+)")
+                                   .arg(Theme::Gold)
+                                   .arg(Theme::Card)
+                                   .arg(Theme::Warning));
 
     cardLayout->addWidget(loginButton);
 

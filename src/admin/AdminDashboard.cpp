@@ -1,5 +1,6 @@
 #include "AdminDashboard.h"
 #include "../auth/FontManager.h"
+#include "../theme/Theme.h"
 #include "ManageStudentsWindow.h"
 #include "AttendanceRecordsWindow.h"
 #include "AdministratorWindow.h"
@@ -25,41 +26,49 @@ void AdminDashboard::setupUI()
 {
     setWindowTitle("Admin Dashboard");
     resize(1400,850);
+    setObjectName("AdminDashboard");
 
-    setStyleSheet(R"(
-QWidget{
-    background:#0F172A;
-    color:white;
+    setStyleSheet(QString(R"(
+QWidget#AdminDashboard{
+    background:%1;
+    color:%2;
 }
 QLabel{
     background:transparent;
     border:none;
 }
 QLineEdit{
-    background:#111827;
-    border:1px solid #334155;
+    background:%3;
+    border:1px solid %4;
     border-radius:12px;
     padding:10px;
-    color:white;
+    color:%2;
     font-size:14px;
 }
 
 QLineEdit:focus{
-    border:1px solid #38BDF8;
+    border:1px solid %5;
 }
 
 QPushButton{
-    background:#1E293B;
-    color:white;
-    border:1px solid #334155;
+    background:%6;
+    color:%2;
+    border:1px solid %4;
     border-radius:10px;
     padding:10px 20px;
 }
 
 QPushButton:hover{
-    background:#334155;
+    background:%7;
 }
-)");
+)")
+                      .arg(Theme::Card)
+                      .arg(Theme::Primary)
+                      .arg(Theme::Input)
+                      .arg(Theme::Border)
+                      .arg(Theme::Gold)
+                      .arg(Theme::Surface)
+                      .arg(Theme::Hover));
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(30,25,30,25);
@@ -84,12 +93,13 @@ QPushButton:hover{
 
     QLabel *title = new QLabel("Welcome, Administrator");
     title->setFont(FontManager::headingFont(24));
+    title->setStyleSheet(QString("color:%1;").arg(Theme::Gold));
 
     QLabel *date = new QLabel(
         QDate::currentDate().toString("dddd • MMMM d, yyyy")
         );
 
-    date->setStyleSheet("color:#94A3B8;");
+    date->setStyleSheet(QString("color:%1;").arg(Theme::Secondary));
 
     titleLayout->addWidget(title);
     titleLayout->addWidget(date);
@@ -115,13 +125,15 @@ QPushButton:hover{
 
 
 
-    attendanceCard->setStyleSheet(R"(
+    attendanceCard->setStyleSheet(QString(R"(
 QFrame{
-    background:#111827;
-    border:1px solid #334155;
+    background:%1;
+    border:1px solid %2;
     border-radius:20px;
 }
-)");
+)")
+                                      .arg(Theme::Surface)
+                                      .arg(Theme::Border));
 
     auto shadow1 = new QGraphicsDropShadowEffect;
     shadow1->setBlurRadius(25);
@@ -140,26 +152,27 @@ QFrame{
     QFrame *circle = new QFrame();
     circle->setFixedSize(120,120);
 
-    circle->setStyleSheet(R"(
+    circle->setStyleSheet(QString(R"(
 QFrame{
     background:transparent;
-    border:8px solid #38BDF8;
+    border:8px solid %1;
     border-radius:60px;
 }
-)");
+)")
+                              .arg(Theme::Gold));
 
     QVBoxLayout *circleTextLayout = new QVBoxLayout(circle);
 
     QLabel *percent = new QLabel("-%");
     percent->setAlignment(Qt::AlignCenter);
     percent->setFont(FontManager::headingFont(24));
-    percent->setStyleSheet("color:white; border:none;");
+    percent->setStyleSheet(QString("color:%1; border:none;").arg(Theme::Primary));
 
     QLabel *presentLabel = new QLabel("Present");
     presentLabel->setAlignment(Qt::AlignCenter);
     presentLabel->setStyleSheet(
-        "color:#94A3B8;"
-        "border:none;"
+        QString("color:%1;"
+                "border:none;").arg(Theme::Secondary)
         );
 
     circleTextLayout->addStretch();
@@ -184,30 +197,30 @@ QFrame{
     attendanceTitle->setSizePolicy(QSizePolicy::Expanding,
                                    QSizePolicy::Preferred);
     attendanceTitle->setFont(FontManager::headingFont(18));
-    attendanceTitle->setStyleSheet("border:none;");
+    attendanceTitle->setStyleSheet(QString("border:none; color:%1;").arg(Theme::Primary));
     statsLayout->addWidget(attendanceTitle);
 
     statsLayout->addSpacing(15);
 
     QLabel *present = new QLabel("🟢 - Present");
     present->setStyleSheet(
-        "color:#4ADE80;"
-        "font-size:16px;"
-        "border:none;"
+        QString("color:%1;"
+                "font-size:16px;"
+                "border:none;").arg(Theme::Success)
         );
 
     QLabel *late = new QLabel("🟡 - Late");
     late->setStyleSheet(
-        "color:#FBBF24;"
-        "font-size:16px;"
-        "border:none;"
+        QString("color:%1;"
+                "font-size:16px;"
+                "border:none;").arg(Theme::Warning)
         );
 
     QLabel *absent = new QLabel("🔴 - Absent");
     absent->setStyleSheet(
-        "color:#F87171;"
-        "font-size:16px;"
-        "border:none;"
+        QString("color:%1;"
+                "font-size:16px;"
+                "border:none;").arg(Theme::Danger)
         );
 
     statsLayout->addWidget(present);
@@ -217,19 +230,21 @@ QFrame{
     statsLayout->addStretch();
 
     attendanceLayout->addLayout(statsLayout);
-//this week
+    //this week
 
     QFrame *weekCard = new QFrame();
     weekCard->setMinimumSize(550,200);
 
 
-    weekCard->setStyleSheet(R"(
+    weekCard->setStyleSheet(QString(R"(
 QFrame{
-    background:#111827;
-    border:1px solid #334155;
+    background:%1;
+    border:1px solid %2;
     border-radius:20px;
 }
-)");
+)")
+                                .arg(Theme::Surface)
+                                .arg(Theme::Border));
 
     auto shadow2 = new QGraphicsDropShadowEffect;
     shadow2->setBlurRadius(25);
@@ -243,6 +258,7 @@ QFrame{
 
     QLabel *weekTitle = new QLabel("This Week");
     weekTitle->setFont(FontManager::headingFont(18));
+    weekTitle->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
     weekLayout->addWidget(weekTitle);
 
 
@@ -263,22 +279,25 @@ QFrame{
         bar->setTextVisible(false);
         bar->setFixedSize(22,90);
 
-        bar->setStyleSheet(R"(
+        bar->setStyleSheet(QString(R"(
 QProgressBar{
-    border:1px solid #334155;
+    border:1px solid %1;
     border-radius:8px;
-    background:#1E293B;
+    background:%2;
 }
 
 QProgressBar::chunk{
-    background:#38BDF8;
+    background:%3;
     border-radius:8px;
 }
-)");
+)")
+                               .arg(Theme::Border)
+                               .arg(Theme::Input)
+                               .arg(Theme::Gold));
 
         QLabel *day = new QLabel(days[i]);
         day->setAlignment(Qt::AlignCenter);
-        day->setStyleSheet("color:#94A3B8;");
+        day->setStyleSheet(QString("color:%1;").arg(Theme::Secondary));
 
         dayLayout->addWidget(bar,0,Qt::AlignCenter);
         dayLayout->addWidget(day);
@@ -300,13 +319,15 @@ QProgressBar::chunk{
     QFrame *recentCard = new QFrame();
     recentCard->setMinimumHeight(220);
 
-    recentCard->setStyleSheet(R"(
+    recentCard->setStyleSheet(QString(R"(
 QFrame{
-    background:#111827;
-    border:1px solid #334155;
+    background:%1;
+    border:1px solid %2;
     border-radius:20px;
 }
-)");
+)")
+                                  .arg(Theme::Surface)
+                                  .arg(Theme::Border));
 
     auto *shadow3 = new QGraphicsDropShadowEffect;
     shadow3->setBlurRadius(25);
@@ -320,6 +341,7 @@ QFrame{
 
     QLabel *recentTitle = new QLabel("Recent Check-ins");
     recentTitle->setFont(FontManager::headingFont(18));
+    recentTitle->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
 
     recentLayout->addWidget(recentTitle);
 
@@ -345,12 +367,13 @@ QFrame{
     {
         QFrame *row = new QFrame();
 
-        row->setStyleSheet(R"(
+        row->setStyleSheet(QString(R"(
 QFrame{
-    background:#1E293B;
+    background:%1;
     border-radius:12px;
 }
-)");
+)")
+                               .arg(Theme::Input));
 
         row->setMinimumHeight(50);
 
@@ -361,35 +384,42 @@ QFrame{
         avatar->setStyleSheet("font-size:24px;");
         QLabel *name = new QLabel(students[i]);
         name->setFont(FontManager::buttonFont(14));
+        name->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
 
         QLabel *badge = new QLabel(status[i]);
 
         if(status[i]=="Present")
             badge->setStyleSheet(
-                "background:#14532D;"
-                "color:#4ADE80;"
-                "padding:6px 14px;"
-                "border-radius:10px;"
+                QString("background:%1;"
+                        "color:%2;"
+                        "padding:6px 14px;"
+                        "border-radius:10px;")
+                    .arg(Theme::Card)
+                    .arg(Theme::Success)
                 );
 
         else if(status[i]=="Late")
             badge->setStyleSheet(
-                "background:#78350F;"
-                "color:#FACC15;"
-                "padding:6px 14px;"
-                "border-radius:10px;"
+                QString("background:%1;"
+                        "color:%2;"
+                        "padding:6px 14px;"
+                        "border-radius:10px;")
+                    .arg(Theme::Card)
+                    .arg(Theme::Warning)
                 );
 
         else
             badge->setStyleSheet(
-                "background:#7F1D1D;"
-                "color:#F87171;"
-                "padding:6px 14px;"
-                "border-radius:10px;"
+                QString("background:%1;"
+                        "color:%2;"
+                        "padding:6px 14px;"
+                        "border-radius:10px;")
+                    .arg(Theme::Card)
+                    .arg(Theme::Danger)
                 );
 
         QLabel *timeLabel = new QLabel(time[i]);
-        timeLabel->setStyleSheet("color:#94A3B8;");
+        timeLabel->setStyleSheet(QString("color:%1;").arg(Theme::Secondary));
 
         rowLayout->addWidget(avatar);
         rowLayout->addSpacing(10);
@@ -415,13 +445,15 @@ QFrame{
     manageCard->setObjectName("manageCard");
     manageCard->setMinimumSize(95,95);
 
-manageCard->setStyleSheet(R"(
+    manageCard->setStyleSheet(QString(R"(
 #manageCard{
-    background:#111827;
-    border:1px solid #334155;
+    background:%1;
+    border:1px solid %2;
     border-radius:18px;
 }
-)");
+)")
+                                  .arg(Theme::Surface)
+                                  .arg(Theme::Border));
 
     auto *manageShadow = new QGraphicsDropShadowEffect;
     manageShadow->setBlurRadius(20);
@@ -435,18 +467,20 @@ manageCard->setStyleSheet(R"(
     manageLayout->setSpacing(8);
     QLabel *manageIcon = new QLabel();
     manageIcon->setFixedSize(36,36);
-    manageIcon->setStyleSheet(R"(
-QLabel{
-    background:#2563EB;
-    border-radius:18px;
-}
-)");
     manageIcon->setAlignment(Qt::AlignCenter);
-    manageIcon->setStyleSheet("font-size:18px;");
+    manageIcon->setStyleSheet(QString(R"(
+QLabel{
+    background:%1;
+    border-radius:18px;
+    font-size:18px;
+}
+)")
+                                  .arg(Theme::Gold));
 
     QLabel *manageTitle = new QLabel("Manage Students");
     manageTitle->setAlignment(Qt::AlignCenter);
     manageTitle->setFont(FontManager::headingFont(16));
+    manageTitle->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
 
     QLabel *manageDesc = new QLabel(
         "View, edit and delete\nregistered students."
@@ -455,9 +489,9 @@ QLabel{
     manageDesc->setAlignment(Qt::AlignCenter);
     manageDesc->setWordWrap(true);
     manageDesc->setStyleSheet(
-    "color:#94A3B8;"
-    "font-size:16px;"
-);
+        QString("color:%1;"
+                "font-size:16px;").arg(Theme::Secondary)
+        );
 
     QPushButton *manageButton = new QPushButton("Open");
     connect(manageButton, &QPushButton::clicked, this, [this]()
@@ -468,19 +502,22 @@ QLabel{
             });
     manageButton->setMinimumHeight(20);
 
-    manageButton->setStyleSheet(R"(
+    manageButton->setStyleSheet(QString(R"(
 QPushButton{
-    background:#2563EB;
-    color:white;
+    background:%1;
+    color:%2;
     border:none;
     border-radius:10px;
     font-weight:bold;
 }
 
 QPushButton:hover{
-    background:#1D4ED8;
+    background:%3;
 }
-)");
+)")
+                                    .arg(Theme::Gold)
+                                    .arg(Theme::Card)
+                                    .arg(Theme::Warning));
 
     manageLayout->addWidget(manageIcon);
     manageLayout->addWidget(manageTitle);
@@ -496,13 +533,15 @@ QPushButton:hover{
     recordCard->setObjectName("recordCard");
     recordCard->setMinimumSize(95,95);
 
-    recordCard->setStyleSheet(R"(
+    recordCard->setStyleSheet(QString(R"(
 #recordCard{
-    background:#111827;
-    border:1px solid #334155;
+    background:%1;
+    border:1px solid %2;
     border-radius:18px;
 }
-)");
+)")
+                                  .arg(Theme::Surface)
+                                  .arg(Theme::Border));
 
     auto *recordShadow = new QGraphicsDropShadowEffect;
     recordShadow->setBlurRadius(20);
@@ -516,18 +555,20 @@ QPushButton:hover{
 
     QLabel *recordIcon = new QLabel();
     recordIcon->setFixedSize(36,36);
-    recordIcon->setStyleSheet(R"(
-QLabel{
-    background:#38BDF8;
-    border-radius:18px;
-}
-)");
     recordIcon->setAlignment(Qt::AlignCenter);
-    recordIcon->setStyleSheet("font-size:18px;");
+    recordIcon->setStyleSheet(QString(R"(
+QLabel{
+    background:%1;
+    border-radius:18px;
+    font-size:18px;
+}
+)")
+                                  .arg(Theme::Warning));
 
     QLabel *recordTitle = new QLabel("Attendance Records");
     recordTitle->setAlignment(Qt::AlignCenter);
     recordTitle->setFont(FontManager::headingFont(16));
+    recordTitle->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
 
     QLabel *recordDesc = new QLabel(
         "View daily, weekly and\nmonthly attendance."
@@ -536,8 +577,8 @@ QLabel{
     recordDesc->setAlignment(Qt::AlignCenter);
     recordDesc->setWordWrap(true);
     recordDesc->setStyleSheet(
-        "color:#94A3B8;"
-        "font-size:16px;"
+        QString("color:%1;"
+                "font-size:16px;").arg(Theme::Secondary)
         );
 
     QPushButton *recordButton = new QPushButton("Open");
@@ -549,18 +590,21 @@ QLabel{
             });
     recordButton->setMinimumHeight(20);
 
-    recordButton->setStyleSheet(R"(
+    recordButton->setStyleSheet(QString(R"(
 QPushButton{
-    background:#2563EB;
-    color:white;
+    background:%1;
+    color:%2;
     border:none;
     border-radius:10px;
     font-weight:bold;
 }
 QPushButton:hover{
-    background:#1D4ED8;
+    background:%3;
 }
-)");
+)")
+                                    .arg(Theme::Gold)
+                                    .arg(Theme::Card)
+                                    .arg(Theme::Warning));
 
     recordLayout->addWidget(recordIcon);
     recordLayout->addWidget(recordTitle);
@@ -576,13 +620,15 @@ QPushButton:hover{
     exportCard->setObjectName("exportCard");
     exportCard->setMinimumSize(95,95);
 
-    exportCard->setStyleSheet(R"(
+    exportCard->setStyleSheet(QString(R"(
 #exportCard{
-    background:#111827;
-    border:1px solid #334155;
+    background:%1;
+    border:1px solid %2;
     border-radius:18px;
 }
-)");
+)")
+                                  .arg(Theme::Surface)
+                                  .arg(Theme::Border));
 
     auto *exportShadow = new QGraphicsDropShadowEffect;
     exportShadow->setBlurRadius(20);
@@ -596,18 +642,20 @@ QPushButton:hover{
 
     QLabel *exportIcon = new QLabel();
     exportIcon->setFixedSize(36,36);
-    exportIcon->setStyleSheet(R"(
-QLabel{
-    background:#10B981;
-    border-radius:18px;
-}
-)");
     exportIcon->setAlignment(Qt::AlignCenter);
-    exportIcon->setStyleSheet("font-size:18px;");
+    exportIcon->setStyleSheet(QString(R"(
+QLabel{
+    background:%1;
+    border-radius:18px;
+    font-size:18px;
+}
+)")
+                                  .arg(Theme::Success));
 
     QLabel *exportTitle = new QLabel("Export Reports");
     exportTitle->setAlignment(Qt::AlignCenter);
     exportTitle->setFont(FontManager::headingFont(16));
+    exportTitle->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
 
     QLabel *exportDesc = new QLabel(
         "Export attendance\nreports as PDF or CSV."
@@ -616,25 +664,28 @@ QLabel{
     exportDesc->setAlignment(Qt::AlignCenter);
     exportDesc->setWordWrap(true);
     exportDesc->setStyleSheet(
-        "color:#94A3B8;"
-        "font-size:16px;"
+        QString("color:%1;"
+                "font-size:16px;").arg(Theme::Secondary)
         );
 
     QPushButton *exportButton = new QPushButton("Open");
     exportButton->setMinimumHeight(20);
 
-    exportButton->setStyleSheet(R"(
+    exportButton->setStyleSheet(QString(R"(
 QPushButton{
-    background:#2563EB;
-    color:white;
+    background:%1;
+    color:%2;
     border:none;
     border-radius:10px;
     font-weight:bold;
 }
 QPushButton:hover{
-    background:#1D4ED8;
+    background:%3;
 }
-)");
+)")
+                                    .arg(Theme::Gold)
+                                    .arg(Theme::Card)
+                                    .arg(Theme::Warning));
 
     exportLayout->addWidget(exportIcon);
     exportLayout->addWidget(exportTitle);
@@ -647,4 +698,4 @@ QPushButton:hover{
     mainLayout->addLayout(bottomRow);
 
     setLayout(mainLayout);
-    }
+}

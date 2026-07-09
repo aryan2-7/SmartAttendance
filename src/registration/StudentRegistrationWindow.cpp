@@ -1,6 +1,7 @@
 #include "StudentRegistrationWindow.h"
 #include "../auth/FontManager.h"
 #include "../auth/WelcomeWindow.h"
+#include "../theme/Theme.h"
 
 #include <QVBoxLayout>
 #include <QLabel>
@@ -24,13 +25,16 @@ void StudentRegistrationWindow::setupUI()
 {
     setWindowTitle("Student Registration");
     resize(1400, 850);
+    setObjectName("StudentRegistrationWindow");
 
-    setStyleSheet(R"(
-QWidget{
-    background:#0F172A;
-    color:white;
+    setStyleSheet(QString(R"(
+QWidget#StudentRegistrationWindow{
+    background:%1;
+    color:%2;
 }
-)");
+)")
+                      .arg(Theme::Card)
+                      .arg(Theme::Primary));
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(32,24,32,24);
@@ -48,23 +52,27 @@ QWidget{
             });
     backButton->setFixedSize(110,40);
 
-    backButton->setStyleSheet(R"(
+    backButton->setStyleSheet(QString(R"(
 QPushButton{
-    background:#1E293B;
-    color:white;
-    border:1px solid #334155;
+    background:%1;
+    color:%2;
+    border:1px solid %3;
     border-radius:10px;
 }
 QPushButton:hover{
-    background:#334155;
+    background:%4;
 }
-)");
+)")
+                                  .arg(Theme::Surface)
+                                  .arg(Theme::Primary)
+                                  .arg(Theme::Border)
+                                  .arg(Theme::Hover));
 
     QLabel *title = new QLabel("Student Registration");
     QFont titleFont = FontManager::headingFont();
     titleFont.setPointSize(22);
     title->setFont(titleFont);
-    title->setStyleSheet("color:white;");
+    title->setStyleSheet(QString("color:%1;").arg(Theme::Gold));
 
     headerLayout->addWidget(backButton);
     headerLayout->addSpacing(30);
@@ -81,14 +89,15 @@ QPushButton:hover{
     QGroupBox *infoBox = new QGroupBox("Student Information");
     infoBox->setFixedWidth(450);
 
-    infoBox->setStyleSheet(R"(
+    infoBox->setStyleSheet(QString(R"(
 QGroupBox{
-    background:#1E293B;
-    border:1px solid #334155;
+    background:%1;
+    border:1px solid %2;
     border-radius:15px;
     margin-top:15px;
     font-size:18px;
     font-weight:bold;
+    color:%3;
     padding:15px;
 }
 
@@ -99,20 +108,26 @@ QGroupBox::title{
 }
 
 QLineEdit{
-    background:#0F172A;
-    border:1px solid #475569;
+    background:%4;
+    border:1px solid %2;
     border-radius:8px;
     padding:10px;
-    color:white;
+    color:%3;
 }
 QLineEdit:focus{
-    border:1px solid #4FD1FF;
+    border:1px solid %5;
 }
 
 QLabel{
     background:transparent;
+    color:%3;
 }
-)");
+)")
+                               .arg(Theme::Surface)
+                               .arg(Theme::Border)
+                               .arg(Theme::Primary)
+                               .arg(Theme::Input)
+                               .arg(Theme::Gold));
 
     auto *infoShadow = new QGraphicsDropShadowEffect;
     infoShadow->setBlurRadius(24);
@@ -139,19 +154,22 @@ QLabel{
 
     QPushButton *registerButton = new QPushButton("Register Student");
     registerButton->setMinimumHeight(45);
-    registerButton->setStyleSheet(R"(
+    registerButton->setStyleSheet(QString(R"(
 QPushButton{
-    background:#2563EB;
-    color:white;
+    background:%1;
+    color:%2;
     border:none;
     border-radius:10px;
     font-size:15px;
     font-weight:bold;
 }
 QPushButton:hover{
-    background:#1D4ED8;
+    background:%3;
 }
-)");
+)")
+                                      .arg(Theme::Gold)
+                                      .arg(Theme::Card)
+                                      .arg(Theme::Warning));
     formLayout->addRow(registerButton);
 
     // ---------- right card: face capture / tip panel ----------
@@ -159,13 +177,15 @@ QPushButton:hover{
     QFrame *rightCover = new QFrame;
     rightCover->setFixedWidth(500);
 
-    rightCover->setStyleSheet(R"(
+    rightCover->setStyleSheet(QString(R"(
 QFrame{
-    background:#0F172A;
-    border:1px solid #334155;
+    background:%1;
+    border:1px solid %2;
     border-radius:20px;
 }
-)");
+)")
+                                  .arg(Theme::Card)
+                                  .arg(Theme::Border));
 
     auto *rightShadow = new QGraphicsDropShadowEffect;
     rightShadow->setBlurRadius(24);
@@ -182,20 +202,22 @@ QFrame{
     QLabel *coverTitle = new QLabel("Face Registration");
     coverTitle->setFont(FontManager::headingFont(18));
     coverTitle->setAlignment(Qt::AlignCenter);
-    coverTitle->setStyleSheet("color:white;");
+    coverTitle->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
     rightLayout->addWidget(coverTitle);
 
     // Camera Box
     QFrame *cameraFrame = new QFrame();
     cameraFrame->setFixedSize(460,345);
 
-    cameraFrame->setStyleSheet(R"(
+    cameraFrame->setStyleSheet(QString(R"(
 QFrame{
-    background:#111827;
-    border:2px solid #334155;
+    background:%1;
+    border:2px solid %2;
     border-radius:20px;
 }
-)");
+)")
+                                   .arg(Theme::Input)
+                                   .arg(Theme::Border));
 
     QVBoxLayout *cameraLayout = new QVBoxLayout(cameraFrame);
     cameraLayout->setAlignment(Qt::AlignCenter);
@@ -205,15 +227,18 @@ QFrame{
     cameraIcon->setAlignment(Qt::AlignCenter);
     cameraIcon->setFixedSize(380,285);
 
-    cameraIcon->setStyleSheet(R"(
+    cameraIcon->setStyleSheet(QString(R"(
 QLabel{
-    background:#1F2937;
-    border:2px dashed #38BDF8;
+    background:%1;
+    border:2px dashed %2;
     border-radius:18px;
     font-size:70px;
-    color:#94A3B8;
+    color:%3;
 }
-)");
+)")
+                                  .arg(Theme::Surface)
+                                  .arg(Theme::Gold)
+                                  .arg(Theme::Secondary));
 
     cameraLayout->addStretch();
     cameraLayout->addWidget(cameraIcon,0,Qt::AlignCenter);
@@ -223,15 +248,17 @@ QLabel{
     status->setAlignment(Qt::AlignCenter);
     status->setFixedWidth(180);
 
-    status->setStyleSheet(R"(
+    status->setStyleSheet(QString(R"(
 QLabel{
-    background:#123C2C;
-    color:#6EE7B7;
+    background:%1;
+    color:%2;
     border-radius:12px;
     padding:6px;
     font-weight:bold;
 }
-)");
+)")
+                              .arg(Theme::Card)
+                              .arg(Theme::Success));
 
     cameraLayout->addSpacing(15);
     cameraLayout->addWidget(status,0,Qt::AlignCenter);
@@ -248,25 +275,27 @@ QLabel{
     desc->setAlignment(Qt::AlignCenter);
     desc->setWordWrap(true);
     desc->setFont(FontManager::appFont(11));
-    desc->setStyleSheet("color:#CBD5E1;");
+    desc->setStyleSheet(QString("color:%1;").arg(Theme::Secondary));
     rightLayout->addWidget(desc);
 
     // Tip Box
     QFrame *tipBox = new QFrame;
 
-    tipBox->setStyleSheet(R"(
+    tipBox->setStyleSheet(QString(R"(
 QFrame{
-    background:#1E293B;
-    border:1px solid #334155;
+    background:%1;
+    border:1px solid %2;
     border-radius:12px;
 }
-)");
+)")
+                              .arg(Theme::Surface)
+                              .arg(Theme::Border));
 
     QVBoxLayout *tipLayout = new QVBoxLayout(tipBox);
 
     QLabel *tipTitle = new QLabel("TIP");
     tipTitle->setFont(FontManager::headingFont(13));
-    tipTitle->setStyleSheet("color:#60A5FA;");
+    tipTitle->setStyleSheet(QString("color:%1;").arg(Theme::Gold));
 
     QLabel *tipText = new QLabel(
         "Ensure the student looks directly at the camera with good lighting."
@@ -274,7 +303,7 @@ QFrame{
 
     tipText->setWordWrap(true);
     tipText->setFont(FontManager::appFont(11));
-    tipText->setStyleSheet("color:#94A3B8;");
+    tipText->setStyleSheet(QString("color:%1;").arg(Theme::Secondary));
 
     tipLayout->addWidget(tipTitle);
     tipLayout->addWidget(tipText);
