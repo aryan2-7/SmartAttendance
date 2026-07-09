@@ -187,7 +187,7 @@ QFrame{
 
     // Camera Box
     QFrame *cameraFrame = new QFrame();
-    cameraFrame->setFixedSize(380,320);
+    cameraFrame->setFixedSize(460,345);
 
     cameraFrame->setStyleSheet(R"(
 QFrame{
@@ -203,7 +203,7 @@ QFrame{
     // Camera Placeholder
     QLabel *cameraIcon = new QLabel("👤");
     cameraIcon->setAlignment(Qt::AlignCenter);
-    cameraIcon->setFixedSize(260,260);
+    cameraIcon->setFixedSize(380,285);
 
     cameraIcon->setStyleSheet(R"(
 QLabel{

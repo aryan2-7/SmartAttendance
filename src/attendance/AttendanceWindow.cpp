@@ -91,7 +91,7 @@ void AttendanceWindow::setupUI()
     // =========================================================
 
     QFrame *cameraCard = new QFrame();
-    cameraCard->setFixedSize(520, 460);
+    cameraCard->setFixedSize(540, 500);
 
     cameraCard->setStyleSheet(
         "QFrame{"
@@ -110,7 +110,7 @@ void AttendanceWindow::setupUI()
 
     QLabel *cameraPlaceholder = new QLabel("👤");
 
-    cameraPlaceholder->setFixedSize(300,300);
+    cameraPlaceholder->setFixedSize(460,345);
     cameraPlaceholder->setAlignment(Qt::AlignCenter);
 
     cameraPlaceholder->setStyleSheet(
@@ -144,15 +144,6 @@ void AttendanceWindow::setupUI()
 
     mainLayout->addWidget(cameraCard,0,Qt::AlignCenter);
 
-    // =========================================================
-    // Status Title
-    // =========================================================
-
-    QLabel *statusTitle = new QLabel("System Status");
-    statusTitle->setFont(FontManager::headingFont(15));
-    statusTitle->setStyleSheet("color:white;");
-
-    mainLayout->addWidget(statusTitle,0,Qt::AlignCenter);
 
     // =========================================================
     // Status Card
@@ -173,26 +164,10 @@ void AttendanceWindow::setupUI()
     logLayout->setContentsMargins(20,20,20,20);
     logLayout->setSpacing(10);
 
+
     QLabel *line1 =
-        new QLabel("00:00:00   Camera initialized");
-    line1->setStyleSheet(
-        "color:#A8B3C7;"
-        "font-family:Consolas;"
-        "font-size:14px;"
-        );
-
-    QLabel *line2 =
-        new QLabel("00:00:00   Waiting for student...");
-    line2->setStyleSheet(
-        "color:#38BDF8;"
-        "font-family:Consolas;"
-        "font-size:14px;"
-        "font-weight:bold;"
-        );
-
-    QLabel *line3 =
         new QLabel("00:00:00   Ready to mark attendance");
-    line3->setStyleSheet(
+    line1->setStyleSheet(
         "color:#4ADE80;"
         "font-family:Consolas;"
         "font-size:14px;"
@@ -200,8 +175,6 @@ void AttendanceWindow::setupUI()
         );
 
     logLayout->addWidget(line1);
-    logLayout->addWidget(line2);
-    logLayout->addWidget(line3);
 
     mainLayout->addWidget(logCard,0,Qt::AlignCenter);
 
