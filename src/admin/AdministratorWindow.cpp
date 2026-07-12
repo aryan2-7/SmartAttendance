@@ -17,6 +17,7 @@
 AdministratorWindow::AdministratorWindow(QWidget *parent)
     : QWidget(parent)
 {
+    setAttribute(Qt::WA_DeleteOnClose);
     setupUI();
 }
 

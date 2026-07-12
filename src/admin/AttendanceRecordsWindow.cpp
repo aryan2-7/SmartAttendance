@@ -9,8 +9,7 @@
 #include <QFrame>
 #include <QLabel>
 #include <QPushButton>
-#include <QLineEdit>
-#include <QDateEdit>
+
 #include <QDate>
 #include <QTableWidget>
 #include <QHeaderView>
@@ -23,6 +22,7 @@
 AttendanceRecordsWindow::AttendanceRecordsWindow(QWidget *parent)
     : QWidget(parent)
 {
+    setAttribute(Qt::WA_DeleteOnClose);
     setupUI();
 }
 

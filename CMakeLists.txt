@@ -66,7 +66,6 @@ set(SOURCES
 
 add_executable(SmartAttendance
     ${SOURCES}
-    src/main.cpp
     src/auth/WelcomeWindow.h
     src/auth/FontManager.h
     src/registration/StudentRegistrationWindow.h
@@ -87,8 +86,8 @@ target_include_directories(SmartAttendance PRIVATE
     src/auth
     src/registration
     src/attendance
-    src/records
-    src/export
+    # src/records
+    # src/export
     src/db
     src/admin
     src/theme

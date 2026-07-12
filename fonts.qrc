@@ -6,7 +6,6 @@
     </qresource>
     <qresource prefix="/icons">
         <file>assets/icons/admin_panel_settings.svg</file>
-        <file>assets/icons/arrow_forward.svg</file>
         <file>assets/icons/face.svg</file>
         <file>assets/icons/how_to_reg.svg</file>
         <file>assets/icons/person_add.svg</file>

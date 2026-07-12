@@ -6,7 +6,6 @@
 #include "../admin/AdministratorWindow.h"
 
 #include <QApplication>
-#include <QFontDatabase>
 
 #include <QFrame>
 #include <QGraphicsDropShadowEffect>

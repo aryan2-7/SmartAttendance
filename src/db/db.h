@@ -37,6 +37,5 @@ public:
 private:
     sqlite3* db;
     bool execute(const std::string& sql);
-    static std::string escapeSql(const std::string& value);
     bool migrateAttendanceTable();
 };

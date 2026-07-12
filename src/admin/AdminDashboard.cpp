@@ -25,6 +25,7 @@
 AdminDashboard::AdminDashboard(QWidget *parent)
     : QWidget(parent)
 {
+    setAttribute(Qt::WA_DeleteOnClose);
     setupUI();
     refreshDashboard();
 }
@@ -86,7 +87,7 @@ void AdminDashboard::refreshDashboard()
     recentTitle->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
     recentLayout->addWidget(recentTitle);
 
-    int maxRows = std::min(5, static_cast<int>(records.size()));
+    int maxRows = (std::min)(5, static_cast<int>(records.size()));
     for (int i = 0; i < maxRows; ++i) {
         auto &r = records[i];
         QFrame *row = new QFrame();

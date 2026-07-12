@@ -1,5 +1,4 @@
-#ifndef WELCOMEWINDOW_H
-#define WELCOMEWINDOW_H
+#pragma once
 
 #include <QWidget>
 
@@ -16,5 +15,3 @@ public:
 private:
     void setupUI();
 };
-
-#endif

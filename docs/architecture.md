@@ -26,49 +26,53 @@ SmartAttendance/
 ├── README.md
 ├── .gitignore
 ├── .gitattributes                          # Git LFS for ONNX models
-├── attendance.csv                          # gitignored, generated at runtime
+├── fonts.qrc
 ├── src/
-│   ├── main.cpp                            # entry point: shows LoginWindow → MainMenu
+│   ├── main.cpp                            # entry point: shows WelcomeWindow
 │   ├── auth/
-│   │   ├── LoginWindow.h                   ✅ done
-│   │   └── LoginWindow.cpp                 ✅ done
+│   │   ├── WelcomeWindow.h                 ✅ done
+│   │   ├── WelcomeWindow.cpp               ✅ done
+│   │   ├── FontManager.h                   ✅ done
+│   │   └── FontManager.cpp                 ✅ done
 │   ├── registration/
-│   │   ├── FaceRegistration.h              ✅ done
-│   │   └── FaceRegistration.cpp            ✅ done
+│   │   ├── StudentRegistrationWindow.h     ✅ done
+│   │   └── StudentRegistrationWindow.cpp   ✅ done
 │   ├── attendance/
-│   │   ├── AttendanceMarker.h              ✅ done
-│   │   └── AttendanceMarker.cpp            ✅ done
-│   ├── MainMenu.h                          ✅ done
-│   ├── MainMenu.cpp                        ✅ done
-│   ├── records/
-│   │   ├── RecordsViewer.h                 ⬜ not started
-│   │   └── RecordsViewer.cpp               ⬜ not started
-│   ├── export/
-│   │   ├── CsvExporter.h                   ⬜ not started
-│   │   └── CsvExporter.cpp                 ⬜ not started
+│   │   ├── AttendanceWindow.h              ✅ done
+│   │   └── AttendanceWindow.cpp            ✅ done
+│   ├── admin/
+│   │   ├── AdministratorWindow.h           ✅ done
+│   │   ├── AdministratorWindow.cpp         ✅ done
+│   │   ├── AdminDashboard.h                ✅ done
+│   │   ├── AdminDashboard.cpp              ✅ done
+│   │   ├── ManageStudentsWindow.h          ✅ done
+│   │   ├── ManageStudentsWindow.cpp        ✅ done
+│   │   ├── AttendanceRecordsWindow.h       ✅ done
+│   │   ├── AttendanceRecordsWindow.cpp     ✅ done
+│   │   ├── CircularProgress.h              ✅ done
+│   │   └── CircularProgress.cpp            ✅ done
 │   └── db/
-│       ├── Database.h                      ⬜ not started
-│       └── Database.cpp                    ⬜ not started
+│       ├── db.h                            ✅ implemented
+│       └── db.cpp                          ✅ implemented
 ├── resources/
 │   ├── models/                             # ONNX models (Git LFS)
 │   │   ├── face_detection_yunet_2023mar.onnx
 │   │   └── face_recognition_sface_2021dec.onnx
-│   ├── haarcascades/
-│   │   └── haarcascade_eye.xml             # blink liveness
 │   ├── trained_models/                     # .bin files per registered user
 │   └── icons/
-└── docs/
-    └── architecture.md
+├── docs/
+│   └── architecture.md
+└── fonts/
 ```
 
 ---
 
 ## Module status
 
-### ✅ Module 1 — Login / Auth (`src/auth/`)
-- Single hardcoded admin password
-- Qt login window shown before everything else
-- On success: shows MainMenu tab widget
+### ✅ Module 1 — Welcome / Auth (`src/auth/`)
+- WelcomeWindow with three action cards: Student Registration, Mark Attendance, Administrator Login
+- FontManager loads embedded Montserrat/Playfair fonts from Qt resources
+- Administrator login via SQLite with prepared statements
 
 ### ✅ Module 2 — Face Registration (`src/registration/`)
 - Opens webcam, loads **YuNet** immediately (face box visible from window open)
@@ -76,36 +80,24 @@ SmartAttendance/
 - Captures 50 embeddings (128-d feature vectors) from aligned face crops
 - Averages embeddings, saves to `resources/trained_models/<Name>_<Roll>.bin`
 - Qt widget: name input, roll input, progress bar, live preview with face box
-- Signals: none currently
 
 ### ✅ Module 3 — Live Attendance Marking (`src/attendance/`)
 - Opens webcam, loads YuNet + SFace + all `.bin` gallery files
-- **Frame-skip detection**: YuNet runs every 3rd frame (caches last bounding box)
-- **Downscaled detection**: YuNet scans a 320×240 copy → box scaled back to full-res
-- SFace embedding extracted from full-res frame (quality unaffected)
 - Cosine similarity vs gallery — threshold 0.363
-- **Blink liveness**: Haar eye-cascade state machine per detected person
 - Anti-duplicate: 300 s cooldown per roll number
-- Logs to `attendance.csv` with score + timestamp
-- Auto-closes ~1.5 s after a "PRESENT" verdict
+- Logs to SQLite database
 
-### ✅ MainMenu (`src/MainMenu.cpp`)
-- Tab widget with "Register Face", "Mark Attendance", "View Records" (stub), "Export" (stub)
-- Passes `PROJECT_SOURCE_DIR`-based paths to child modules
-- All module paths are absolute at build time — no POST_BUILD copy needed
+### ✅ Module 4 — Admin Dashboard (`src/admin/`)
+- Administrator login with username/password
+- Dashboard with attendance circle, weekly bar chart, recent check-ins
+- Student management: add, edit, delete students
+- Attendance records: daily roster with Present/Late/Absent status
+- CSV export of attendance data
 
-### ⬜ Module 0 — Database layer (`src/db/`)
-- Tables planned: `students`, `attendance_records`
-- SQLite amalgamation (single .c/.h drop-in, no external install)
-- Not yet implemented
-
-### ⬜ Module 4 — Records Viewer (`src/records/`)
-- Qt table widget pulling from SQLite (or CSV)
-- Filter by date / student, attendance percentage
-
-### ⬜ Module 5 — CSV Export (`src/export/`)
-- Reads from DB, writes CSV
-- Triggered by button in Records Viewer
+### ✅ Module 5 — Database layer (`src/db/`)
+- Tables: `users`, `students`, `attendance`
+- SQLite with parameterized queries (no SQL injection)
+- Foreign key cascading on rollNumber changes
 
 ---
 

@@ -14,7 +14,6 @@
 #include <QImage>
 #include <opencv2/imgproc.hpp>
 #include <fstream>
-#include <iostream>
 
 static QPixmap matToPixmap(const cv::Mat &frame) {
     cv::Mat rgb;
@@ -28,7 +27,6 @@ AttendanceWindow::AttendanceWindow(QWidget *parent) : QWidget(parent) {
     setupUI();
 
     std::string modelDir = std::string(PROJECT_SOURCE_DIR) + "/resources/models/";
-    std::string galleryDir = std::string(PROJECT_SOURCE_DIR) + "/resources/trained_models/";
 
     detector_ = cv::FaceDetectorYN::create(
         modelDir + "face_detection_yunet_2023mar.onnx", "",
@@ -36,7 +34,7 @@ AttendanceWindow::AttendanceWindow(QWidget *parent) : QWidget(parent) {
     recognizer_ = cv::FaceRecognizerSF::create(
         modelDir + "face_recognition_sface_2021dec.onnx", "");
 
-    if (!loadGallery(galleryDir)) {
+    if (!loadGallery()) {
         statusLabel->setText("No students registered yet.");
     }
 
@@ -123,8 +121,7 @@ void AttendanceWindow::setupUI() {
     setLayout(mainLayout);
 }
 
-bool AttendanceWindow::loadGallery(const std::string &galleryDir) {
-    (void)galleryDir;
+bool AttendanceWindow::loadGallery() {
     Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
     db.initializeTables();
     std::vector<StudentRecordDB> dbStudents = db.getAllStudents();

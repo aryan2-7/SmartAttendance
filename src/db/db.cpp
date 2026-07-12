@@ -2,7 +2,6 @@
 #include "db.h"
 #include <iostream>
 #include <ctime>
-#include <sstream>
 
 Database::Database(const std::string& dbPath) : db(nullptr) {
     int rc = sqlite3_open(dbPath.c_str(), &db);
@@ -27,16 +26,6 @@ bool Database::execute(const std::string& sql) {
         return false;
     }
     return true;
-}
-
-std::string Database::escapeSql(const std::string& value) {
-    std::string escaped;
-    escaped.reserve(value.size());
-    for (char c : value) {
-        if (c == '\'') escaped += "''";
-        else escaped += c;
-    }
-    return escaped;
 }
 
 bool Database::migrateAttendanceTable() {
@@ -117,20 +106,24 @@ bool Database::initializeTables() {
 
 bool Database::addStudent(const std::string& name, int rollNumber, const std::string& modelPath) {
     if (studentExists(rollNumber)) return false;
-    std::string sql =
-        "INSERT INTO students (name, rollNumber, modelPath) VALUES ('" +
-        escapeSql(name) + "', " + std::to_string(rollNumber) + ", '" +
-        escapeSql(modelPath) + "');";
-    return execute(sql);
+    const char *sql = "INSERT INTO students (name, rollNumber, modelPath) VALUES (?, ?, ?);";
+    sqlite3_stmt *stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 2, rollNumber);
+    sqlite3_bind_text(stmt, 3, modelPath.c_str(), -1, SQLITE_TRANSIENT);
+    bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+    sqlite3_finalize(stmt);
+    return ok;
 }
 
 bool Database::studentExists(int rollNumber) {
-    std::string sql =
-        "SELECT COUNT(*) FROM students WHERE rollNumber = " + std::to_string(rollNumber) + ";";
-    sqlite3_stmt* stmt;
-    sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-    sqlite3_step(stmt);
-    int count = sqlite3_column_int(stmt, 0);
+    const char *sql = "SELECT COUNT(*) FROM students WHERE rollNumber = ?;";
+    sqlite3_stmt *stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    sqlite3_bind_int(stmt, 1, rollNumber);
+    int count = 0;
+    if (sqlite3_step(stmt) == SQLITE_ROW) count = sqlite3_column_int(stmt, 0);
     sqlite3_finalize(stmt);
     return count > 0;
 }
@@ -155,30 +148,57 @@ std::vector<StudentRecordDB> Database::getAllStudents() {
 }
 
 bool Database::deleteStudent(int rollNumber) {
-    std::string sql = "DELETE FROM students WHERE rollNumber = " + std::to_string(rollNumber) + ";";
-    return execute(sql);
+    const char *sql = "DELETE FROM students WHERE rollNumber = ?;";
+    sqlite3_stmt *stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    sqlite3_bind_int(stmt, 1, rollNumber);
+    bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+    sqlite3_finalize(stmt);
+    return ok;
 }
 
 bool Database::updateStudent(int oldRollNumber, const std::string& newName, int newRollNumber, const std::string& newModelPath) {
     if (!execute("BEGIN;")) return false;
 
-    std::ostringstream sql;
-    sql << "UPDATE students SET name = '" << escapeSql(newName)
-        << "', rollNumber = " << newRollNumber;
-    if (!newModelPath.empty()) {
-        sql << ", modelPath = '" << escapeSql(newModelPath) << "'";
+    sqlite3_stmt *stmt;
+    if (newModelPath.empty()) {
+        const char *sql = "UPDATE students SET name = ?, rollNumber = ? WHERE rollNumber = ?;";
+        if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+            execute("ROLLBACK;");
+            return false;
+        }
+        sqlite3_bind_text(stmt, 1, newName.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(stmt, 2, newRollNumber);
+        sqlite3_bind_int(stmt, 3, oldRollNumber);
+    } else {
+        const char *sql = "UPDATE students SET name = ?, rollNumber = ?, modelPath = ? WHERE rollNumber = ?;";
+        if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+            execute("ROLLBACK;");
+            return false;
+        }
+        sqlite3_bind_text(stmt, 1, newName.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(stmt, 2, newRollNumber);
+        sqlite3_bind_text(stmt, 3, newModelPath.empty() ? "" : newModelPath.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(stmt, 4, oldRollNumber);
     }
-    sql << " WHERE rollNumber = " << oldRollNumber << ";";
 
-    if (!execute(sql.str())) {
+    bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+    sqlite3_finalize(stmt);
+    if (!ok) {
         execute("ROLLBACK;");
         return false;
     }
 
-    std::string attendanceSql =
-        "UPDATE attendance SET name = '" + escapeSql(newName) +
-        "' WHERE rollNumber = " + std::to_string(newRollNumber) + ";";
-    if (!execute(attendanceSql)) {
+    const char *attendanceSql = "UPDATE attendance SET name = ? WHERE rollNumber = ?;";
+    if (sqlite3_prepare_v2(db, attendanceSql, -1, &stmt, nullptr) != SQLITE_OK) {
+        execute("ROLLBACK;");
+        return false;
+    }
+    sqlite3_bind_text(stmt, 1, newName.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 2, newRollNumber);
+    ok = sqlite3_step(stmt) == SQLITE_DONE;
+    sqlite3_finalize(stmt);
+    if (!ok) {
         execute("ROLLBACK;");
         return false;
     }
@@ -195,21 +215,25 @@ bool Database::markAttendance(int rollNumber, const std::string& name) {
     strftime(dateBuf, sizeof(dateBuf), "%Y-%m-%d", localtime(&now));
     strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", localtime(&now));
 
-    std::string check =
-        "SELECT COUNT(*) FROM attendance WHERE rollNumber = " +
-        std::to_string(rollNumber) + " AND date = '" + dateBuf + "';";
-    sqlite3_stmt* stmt;
-    sqlite3_prepare_v2(db, check.c_str(), -1, &stmt, nullptr);
-    sqlite3_step(stmt);
-    int already = sqlite3_column_int(stmt, 0);
+    const char *checkSql = "SELECT COUNT(*) FROM attendance WHERE rollNumber = ? AND date = ?;";
+    sqlite3_stmt *stmt;
+    if (sqlite3_prepare_v2(db, checkSql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    sqlite3_bind_int(stmt, 1, rollNumber);
+    sqlite3_bind_text(stmt, 2, dateBuf, -1, SQLITE_TRANSIENT);
+    int already = 0;
+    if (sqlite3_step(stmt) == SQLITE_ROW) already = sqlite3_column_int(stmt, 0);
     sqlite3_finalize(stmt);
     if (already > 0) return false;
 
-    std::string sql =
-        "INSERT INTO attendance (rollNumber, name, date, time) VALUES (" +
-        std::to_string(rollNumber) + ", '" + escapeSql(name) + "', '" +
-        dateBuf + "', '" + timeBuf + "');";
-    return execute(sql);
+    const char *insertSql = "INSERT INTO attendance (rollNumber, name, date, time) VALUES (?, ?, ?, ?);";
+    if (sqlite3_prepare_v2(db, insertSql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    sqlite3_bind_int(stmt, 1, rollNumber);
+    sqlite3_bind_text(stmt, 2, name.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, dateBuf, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 4, timeBuf, -1, SQLITE_TRANSIENT);
+    bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+    sqlite3_finalize(stmt);
+    return ok;
 }
 
 std::vector<AttendanceRecord> Database::getAllRecords() {
@@ -233,13 +257,13 @@ std::vector<AttendanceRecord> Database::getAllRecords() {
 }
 
 bool Database::checkLogin(const std::string& username, const std::string& password) {
-    std::string sql =
-        "SELECT COUNT(*) FROM users WHERE username = '" + username +
-        "' AND password = '" + password + "';";
-    sqlite3_stmt* stmt;
-    sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-    sqlite3_step(stmt);
-    int count = sqlite3_column_int(stmt, 0);
+    const char *sql = "SELECT COUNT(*) FROM users WHERE username = ? AND password = ?;";
+    sqlite3_stmt *stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, password.c_str(), -1, SQLITE_TRANSIENT);
+    int count = 0;
+    if (sqlite3_step(stmt) == SQLITE_ROW) count = sqlite3_column_int(stmt, 0);
     sqlite3_finalize(stmt);
     return count > 0;
 }

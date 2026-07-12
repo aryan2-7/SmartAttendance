@@ -1,5 +1,4 @@
-#ifndef STUDENTREGISTRATIONWINDOW_H
-#define STUDENTREGISTRATIONWINDOW_H
+#pragma once
 
 #include <QWidget>
 #include <QTimer>
@@ -44,5 +43,3 @@ private:
     static constexpr int SAMPLES = 50;
     std::vector<cv::Mat> embeddings_;
 };
-
-#endif // STUDENTREGISTRATIONWINDOW_H

@@ -1,5 +1,4 @@
-#ifndef CIRCULARPROGRESS_H
-#define CIRCULARPROGRESS_H
+#pragma once
 
 #include <QWidget>
 
@@ -8,7 +7,6 @@ class CircularProgress : public QWidget {
 public:
     explicit CircularProgress(QWidget *parent = nullptr);
     void setPercentage(int pct);
-    int percentage() const { return pct_; }
 
 protected:
     void paintEvent(QPaintEvent *) override;
@@ -16,5 +14,3 @@ protected:
 private:
     int pct_ = 0;
 };
-
-#endif

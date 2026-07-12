@@ -1,5 +1,4 @@
-#ifndef ADMINISTRATORWINDOW_H
-#define ADMINISTRATORWINDOW_H
+#pragma once
 
 #include <QWidget>
 
@@ -21,5 +20,3 @@ private:
     QPushButton *loginButton;
     QPushButton *backButton;
 };
-
-#endif // ADMINISTRATORWINDOW_H

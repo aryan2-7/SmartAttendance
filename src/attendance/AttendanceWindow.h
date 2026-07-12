@@ -1,5 +1,4 @@
-#ifndef ATTENDANCEWINDOW_H
-#define ATTENDANCEWINDOW_H
+#pragma once
 
 #include <QWidget>
 #include <QTimer>
@@ -30,7 +29,7 @@ private slots:
 
 private:
     void setupUI();
-    bool loadGallery(const std::string &galleryDir);
+    bool loadGallery();
     bool detectBestFace(const cv::Mat &frame, cv::Mat &faceBox);
     int  matchFace(const cv::Mat &feat);
     void logAttendance(const StudentRecord &s);
@@ -49,4 +48,4 @@ private:
     static constexpr int    COOLDOWN_SECONDS = 300;
 };
 
-#endif // ATTENDANCEWINDOW_H
+

@@ -1,5 +1,4 @@
-#ifndef FONTMANAGER_H
-#define FONTMANAGER_H
+#pragma once
 
 #include <QFont>
 class FontManager {
@@ -9,5 +8,3 @@ public:
     static QFont titleFont(int size = 24);
     static QFont buttonFont(int size = 12);
 };
-
-#endif

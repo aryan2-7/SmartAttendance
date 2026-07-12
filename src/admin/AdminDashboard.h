@@ -1,5 +1,4 @@
-#ifndef ADMINDASHBOARD_H
-#define ADMINDASHBOARD_H
+#pragma once
 
 #include <QWidget>
 
@@ -24,5 +23,3 @@ private:
     QLabel *absentCount;
     QFrame *recentCard;
 };
-
-#endif // ADMINDASHBOARD_H

@@ -1,5 +1,4 @@
-#ifndef MANAGESTUDENTSWINDOW_H
-#define MANAGESTUDENTSWINDOW_H
+#pragma once
 
 #include <QWidget>
 
@@ -20,5 +19,3 @@ private:
     QTableWidget *table;
     QLabel *totalStudentsLabel;
 };
-
-#endif // MANAGESTUDENTSWINDOW_H

@@ -1,5 +1,4 @@
-#ifndef ATTENDANCERECORDSWINDOW_H
-#define ATTENDANCERECORDSWINDOW_H
+#pragma once
 
 #include <QWidget>
 
@@ -13,5 +12,3 @@ public:
 private:
     void setupUI();
 };
-
-#endif // ATTENDANCERECORDSWINDOW_H
