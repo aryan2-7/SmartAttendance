@@ -1,7 +1,7 @@
 #include "FontManager.h"
 
 namespace {
-const QString FONT_FAMILY = "Segoe UI";
+const QString FONT_FAMILY = "";
 }
 
 QFont FontManager::appFont(int size)

@@ -3,6 +3,9 @@
 
 #include <QWidget>
 
+class QTableWidget;
+class QLabel;
+
 class ManageStudentsWindow : public QWidget
 {
     Q_OBJECT
@@ -12,6 +15,10 @@ public:
 
 private:
     void setupUI();
+    void refreshTable();
+
+    QTableWidget *table;
+    QLabel *totalStudentsLabel;
 };
 
 #endif // MANAGESTUDENTSWINDOW_H

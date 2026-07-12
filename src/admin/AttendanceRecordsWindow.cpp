@@ -2,6 +2,7 @@
 #include "../auth/FontManager.h"
 #include "AdminDashboard.h"
 #include "../theme/Theme.h"
+#include "../db/db.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -15,6 +16,9 @@
 #include <QHeaderView>
 #include <QTableWidgetItem>
 #include <QAbstractItemView>
+#include <QColor>
+#include <set>
+#include <map>
 
 AttendanceRecordsWindow::AttendanceRecordsWindow(QWidget *parent)
     : QWidget(parent)
@@ -29,17 +33,14 @@ void AttendanceRecordsWindow::setupUI()
     setObjectName("AttendanceRecordsWindow");
 
     setStyleSheet(QString(R"(
-
 QWidget#AttendanceRecordsWindow{
     background:%1;
 }
-
 QFrame#card{
     background:%3;
     border:1px solid %2;
     border-radius:16px;
 }
-
 QTableWidget{
     background:%6;
     border:1px solid %2;
@@ -49,7 +50,6 @@ QTableWidget{
     font-size:14px;
     selection-background-color:%7;
 }
-
 QHeaderView::section{
     background:%3;
     color:%4;
@@ -57,12 +57,10 @@ QHeaderView::section{
     padding:10px;
     font-weight:bold;
 }
-
 QTableWidget::item{
     background:%6;
     color:%4;
 }
-
 QPushButton{
     background:%3;
     color:%4;
@@ -70,13 +68,10 @@ QPushButton{
     border-radius:10px;
     padding:10px 18px;
 }
-
 QPushButton:hover{
     background:%5;
 }
-
-QLineEdit,
-QDateEdit{
+QLineEdit, QDateEdit{
     background:%6;
     color:%4;
     border:1px solid %2;
@@ -84,18 +79,14 @@ QDateEdit{
     padding:10px;
     font-size:14px;
 }
-
-QLineEdit:focus,
-QDateEdit:focus{
+QLineEdit:focus, QDateEdit:focus{
     border:1px solid %7;
 }
-
 QLabel{
     border:none;
     background:transparent;
     color:%4;
 }
-
 )")
                       .arg(Theme::Card)
                       .arg(Theme::Border)
@@ -110,12 +101,8 @@ QLabel{
     mainLayout->setSpacing(25);
     mainLayout->setAlignment(Qt::AlignTop);
 
-    //---------------------------------------
     // Header
-    //---------------------------------------
-
     QHBoxLayout *header = new QHBoxLayout();
-
     QPushButton *backButton = new QPushButton("Back");
     connect(backButton, &QPushButton::clicked, this, [this]()
             {
@@ -133,134 +120,114 @@ QLabel{
     header->addSpacing(20);
     header->addWidget(title);
     header->addStretch();
-
     mainLayout->addLayout(header);
 
-    //--------------------------------------------------
-    // Card container (search/filter + table live inside this,
-    // styled to match the boxed "data" panel used across the app)
-    //--------------------------------------------------
-
+    // Card
     QFrame *card = new QFrame();
     card->setObjectName("card");
-
     QVBoxLayout *cardLayout = new QVBoxLayout(card);
     cardLayout->setContentsMargins(20,20,20,20);
     cardLayout->setSpacing(20);
 
-    //--------------------------------------------------
-    // Search & Filter
-    //--------------------------------------------------
+    QLabel *rosterTitle = new QLabel("Today's Attendance Roster");
+    rosterTitle->setFont(FontManager::headingFont(18));
+    rosterTitle->setStyleSheet(QString("color:%1;").arg(Theme::Gold));
+    cardLayout->addWidget(rosterTitle);
 
-    QHBoxLayout *filterLayout = new QHBoxLayout();
-    filterLayout->setSpacing(15);
+    // Fetch data
+    Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+    db.initializeTables();
+    auto students = db.getAllStudents();
+    auto records = db.getAllRecords();
 
-    QLineEdit *searchBox = new QLineEdit();
-    searchBox->setPlaceholderText("Search Student...");
-    searchBox->setFixedHeight(42);
-
-    QDateEdit *dateFilter = new QDateEdit();
-    dateFilter->setCalendarPopup(true);
-    dateFilter->setDate(QDate::currentDate());
-    dateFilter->setFixedSize(160,42);
-
-    QPushButton *refreshButton = new QPushButton("Refresh");
-    refreshButton->setFixedSize(110,42);
-
-    filterLayout->addWidget(searchBox);
-    filterLayout->addWidget(dateFilter);
-    filterLayout->addWidget(refreshButton);
-
-    cardLayout->addLayout(filterLayout);
-    //--------------------------------------------------
-    // Attendance Table
-    //--------------------------------------------------
-
-    QTableWidget *table = new QTableWidget();
-
-    table->setColumnCount(6);
-
-    table->setHorizontalHeaderLabels({
-        "Student ID",
-        "Student Name",
-        "Roll No",
-        "Date",
-        "Time",
-        "Attendance"
-    });
-
-    table->verticalHeader()->hide();
-    table->setAlternatingRowColors(false);
-    table->setShowGrid(false);
-    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    table->setFocusPolicy(Qt::NoFocus);
-    table->verticalHeader()->setDefaultSectionSize(45);
-
-    table->horizontalHeader()->setSectionResizeMode(0,QHeaderView::ResizeToContents);
-    table->horizontalHeader()->setSectionResizeMode(1,QHeaderView::Stretch);
-    table->horizontalHeader()->setSectionResizeMode(2,QHeaderView::ResizeToContents);
-    table->horizontalHeader()->setSectionResizeMode(3,QHeaderView::ResizeToContents);
-    table->horizontalHeader()->setSectionResizeMode(4,QHeaderView::ResizeToContents);
-    table->horizontalHeader()->setSectionResizeMode(5,QHeaderView::ResizeToContents);
-
-    cardLayout->addWidget(table);
-
-    // Card is fully built now — add it to the page
-    mainLayout->addWidget(card);
-    //--------------------------------------------------
-    // Sample Attendance Records
-    //--------------------------------------------------
-
-    table->setRowCount(5);
-
-    table->setItem(0,0,new QTableWidgetItem("1"));
-    table->setItem(0,1,new QTableWidgetItem("Arhan Watson"));
-    table->setItem(0,2,new QTableWidgetItem("15"));
-    table->setItem(0,3,new QTableWidgetItem("08 Jul 2026"));
-    table->setItem(0,4,new QTableWidgetItem("08:45 AM"));
-    table->setItem(0,5,new QTableWidgetItem("Present"));
-
-    table->setItem(1,0,new QTableWidgetItem("2"));
-    table->setItem(1,1,new QTableWidgetItem("Emma Wilson"));
-    table->setItem(1,2,new QTableWidgetItem("22"));
-    table->setItem(1,3,new QTableWidgetItem("08 Jul 2026"));
-    table->setItem(1,4,new QTableWidgetItem("09:03 AM"));
-    table->setItem(1,5,new QTableWidgetItem("Late"));
-
-    table->setItem(2,0,new QTableWidgetItem("3"));
-    table->setItem(2,1,new QTableWidgetItem("John Smith"));
-    table->setItem(2,2,new QTableWidgetItem("08"));
-    table->setItem(2,3,new QTableWidgetItem("08 Jul 2026"));
-    table->setItem(2,4,new QTableWidgetItem("08:39 AM"));
-    table->setItem(2,5,new QTableWidgetItem("Present"));
-
-    table->setItem(3,0,new QTableWidgetItem("4"));
-    table->setItem(3,1,new QTableWidgetItem("Sophia Brown"));
-    table->setItem(3,2,new QTableWidgetItem("19"));
-    table->setItem(3,3,new QTableWidgetItem("08 Jul 2026"));
-    table->setItem(3,4,new QTableWidgetItem("08:58 AM"));
-    table->setItem(3,5,new QTableWidgetItem("Present"));
-
-    table->setItem(4,0,new QTableWidgetItem("5"));
-    table->setItem(4,1,new QTableWidgetItem("David Miller"));
-    table->setItem(4,2,new QTableWidgetItem("11"));
-    table->setItem(4,3,new QTableWidgetItem("08 Jul 2026"));
-    table->setItem(4,4,new QTableWidgetItem("09:12 AM"));
-    table->setItem(4,5,new QTableWidgetItem("Absent"));
-
-    for(int row=0; row<table->rowCount(); row++)
-    {
-        QTableWidgetItem *status = table->item(row,5);
-
-        if(status->text()=="Present")
-            status->setForeground(QBrush(QColor(Theme::Success)));
-        else if(status->text()=="Late")
-            status->setForeground(QBrush(QColor(Theme::Warning)));
-        else
-            status->setForeground(QBrush(QColor(Theme::Danger)));
-
-        status->setTextAlignment(Qt::AlignCenter);
+    std::string today = QDate::currentDate().toString("yyyy-MM-dd").toStdString();
+    std::set<int> presentRolls;
+    std::map<int, std::string> presentTimes;
+    for (auto &r : records) {
+        if (r.date == today) {
+            presentRolls.insert(r.rollNumber);
+            if (presentTimes.count(r.rollNumber) == 0)
+                presentTimes[r.rollNumber] = r.time;
+        }
     }
+
+    QTableWidget *rosterTable = new QTableWidget();
+    rosterTable->setColumnCount(3);
+    rosterTable->setHorizontalHeaderLabels({"Student Name", "Roll No", "Status"});
+    rosterTable->horizontalHeader()->setStretchLastSection(true);
+    rosterTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    rosterTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    rosterTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    rosterTable->setSelectionMode(QAbstractItemView::NoSelection);
+    rosterTable->verticalHeader()->hide();
+    rosterTable->setShowGrid(false);
+    rosterTable->verticalHeader()->setDefaultSectionSize(40);
+
+    rosterTable->setShowGrid(true);
+    rosterTable->setStyleSheet(QString(R"(
+        QTableWidget{
+            background:%1;
+            border:1px solid %2;
+            border-radius:14px;
+            gridline-color:%2;
+            selection-background-color:%3;
+            color:%4;
+            font-size:14px;
+        }
+        QHeaderView::section{
+            background:%5;
+            color:%4;
+            border:none;
+            padding:10px;
+            font-weight:bold;
+        }
+    )")
+        .arg(Theme::Input)
+        .arg(Theme::Border)
+        .arg(Theme::Gold)
+        .arg(Theme::Primary)
+        .arg(Theme::Surface));
+
+    rosterTable->setRowCount(static_cast<int>(students.size()));
+    for (size_t i = 0; i < students.size(); ++i) {
+        auto &s = students[i];
+
+        QTableWidgetItem *nameItem = new QTableWidgetItem(QString::fromStdString(s.name));
+        nameItem->setForeground(QColor(Theme::Primary));
+        rosterTable->setItem(i, 0, nameItem);
+
+        QTableWidgetItem *rollItem = new QTableWidgetItem(QString::number(s.rollNumber));
+        rollItem->setForeground(QColor(Theme::Secondary));
+        rosterTable->setItem(i, 1, rollItem);
+
+        bool isPresent = presentRolls.count(s.rollNumber) > 0;
+        bool isLate = false;
+        if (isPresent) {
+            std::string t = presentTimes[s.rollNumber];
+            isLate = (t > "09:00:00");
+        }
+
+        QString statusText;
+        QColor statusColor;
+        if (isPresent && isLate) {
+            statusText = "Late";
+            statusColor = QColor(Theme::Warning);
+        } else if (isPresent) {
+            statusText = "Present";
+            statusColor = QColor(Theme::Success);
+        } else {
+            statusText = "Absent";
+            statusColor = QColor(Theme::Danger);
+        }
+
+        QTableWidgetItem *statusItem = new QTableWidgetItem(statusText);
+        statusItem->setForeground(statusColor);
+        statusItem->setFont(FontManager::buttonFont(14));
+        rosterTable->setItem(i, 2, statusItem);
+    }
+
+    cardLayout->addWidget(rosterTable);
+    mainLayout->addWidget(card);
+
     setLayout(mainLayout);
 }

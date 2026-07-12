@@ -1,6 +1,7 @@
 #include "AdministratorWindow.h"
 #include "../auth/FontManager.h"
 #include "../theme/Theme.h"
+#include "../db/db.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -9,7 +10,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QGraphicsDropShadowEffect>
-#include <QCheckBox>
+#include <QMessageBox>
 #include "../auth/WelcomeWindow.h"
 #include "AdminDashboard.h"
 
@@ -22,7 +23,8 @@ AdministratorWindow::AdministratorWindow(QWidget *parent)
 void AdministratorWindow::setupUI()
 {
     setWindowTitle("Administrator Login");
-    resize(900, 650);
+    resize(1400, 850);
+    setMinimumSize(1300, 800);
     setObjectName("AdministratorWindow");
 
     setStyleSheet(QString(R"(
@@ -37,8 +39,7 @@ QWidget#AdministratorWindow{
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(30,30,30,30);
 
-    // ================= Header =================
-
+    // Header
     QHBoxLayout *header = new QHBoxLayout();
 
     backButton = new QPushButton("← Back");
@@ -61,10 +62,10 @@ QPushButton:hover{
     background:%4;
 }
 )")
-                                  .arg(Theme::Surface)
-                                  .arg(Theme::Border)
-                                  .arg(Theme::Primary)
-                                  .arg(Theme::Hover));
+                                   .arg(Theme::Surface)
+                                   .arg(Theme::Border)
+                                   .arg(Theme::Primary)
+                                   .arg(Theme::Hover));
 
     QLabel *systemTitle = new QLabel("Smart Attendance");
     systemTitle->setFont(FontManager::headingFont(22));
@@ -78,8 +79,7 @@ QPushButton:hover{
     mainLayout->addLayout(header);
     mainLayout->addStretch();
 
-    // ================= Login Card =================
-
+    // Login Card
     QFrame *card = new QFrame();
     card->setFixedSize(420,430);
 
@@ -90,8 +90,8 @@ QFrame{
     border-radius:18px;
 }
 )")
-                            .arg(Theme::Surface)
-                            .arg(Theme::Border));
+                             .arg(Theme::Surface)
+                             .arg(Theme::Border));
 
     auto shadow = new QGraphicsDropShadowEffect;
     shadow->setBlurRadius(30);
@@ -115,8 +115,7 @@ QFrame{
     cardLayout->addWidget(title);
 
     QLabel *subtitle = new QLabel(
-        "Login to manage the Smart Attendance System."
-        );
+        "Login to manage the Smart Attendance System.");
     subtitle->setAlignment(Qt::AlignCenter);
     subtitle->setWordWrap(true);
     subtitle->setStyleSheet(QString("color:%1;").arg(Theme::Secondary));
@@ -141,10 +140,10 @@ QLineEdit:focus{
     border:1px solid %4;
 }
 )")
-                            .arg(Theme::Input)
-                            .arg(Theme::Border)
-                            .arg(Theme::Primary)
-                            .arg(Theme::Gold);
+                             .arg(Theme::Input)
+                             .arg(Theme::Border)
+                             .arg(Theme::Primary)
+                             .arg(Theme::Gold);
 
     usernameEdit->setStyleSheet(editStyle);
     passwordEdit->setStyleSheet(editStyle);
@@ -152,14 +151,27 @@ QLineEdit:focus{
     cardLayout->addWidget(usernameEdit);
     cardLayout->addWidget(passwordEdit);
 
+    auto doLogin = [this]() {
+        Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+        db.initializeTables();
+        if (db.checkLogin(usernameEdit->text().toStdString(),
+                          passwordEdit->text().toStdString())) {
+            auto *window = new AdminDashboard();
+            window->show();
+            this->close();
+        } else {
+            QMessageBox::critical(this, "Login Failed",
+                                  "Invalid username or password.");
+        }
+    };
 
     loginButton = new QPushButton("Login");
-    connect(loginButton, &QPushButton::clicked, this, [this]()
-            {
-                auto *window = new AdminDashboard();
-                window->show();
-                this->close();
-            });
+    connect(loginButton, &QPushButton::clicked, this, doLogin);
+    // Also submit on Enter key from password field
+    connect(passwordEdit, &QLineEdit::returnPressed, this, doLogin);
+    connect(usernameEdit, &QLineEdit::returnPressed, this, [this]() {
+        passwordEdit->setFocus();
+    });
     loginButton->setMinimumHeight(45);
 
     loginButton->setStyleSheet(QString(R"(
@@ -175,9 +187,9 @@ QPushButton:hover{
     background:%3;
 }
 )")
-                                   .arg(Theme::Gold)
-                                   .arg(Theme::Card)
-                                   .arg(Theme::Warning));
+                                    .arg(Theme::Gold)
+                                    .arg(Theme::Card)
+                                    .arg(Theme::Warning));
 
     cardLayout->addWidget(loginButton);
 
@@ -186,4 +198,7 @@ QPushButton:hover{
     mainLayout->addStretch();
 
     setLayout(mainLayout);
+
+    // Auto-focus username field
+    usernameEdit->setFocus();
 }

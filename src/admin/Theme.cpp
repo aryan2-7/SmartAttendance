@@ -52,7 +52,7 @@ void Theme::paintEvent(QPaintEvent *)
 
     // Percentage text
     p.setPen(Theme::TextPrimary);
-    p.setFont(QFont("Segoe UI", 18, QFont::Bold));
+    p.setFont(QFont("", 18, QFont::Bold));
 
     p.drawText(rect,
                Qt::AlignCenter,

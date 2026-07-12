@@ -1,9 +1,12 @@
 #include "AdminDashboard.h"
+#include "CircularProgress.h"
 #include "../auth/FontManager.h"
 #include "../theme/Theme.h"
 #include "ManageStudentsWindow.h"
 #include "AttendanceRecordsWindow.h"
 #include "AdministratorWindow.h"
+#include "../db/db.h"
+
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFrame>
@@ -14,18 +17,129 @@
 #include <QGraphicsDropShadowEffect>
 #include <QProgressBar>
 #include <QSizePolicy>
-
+#include <QFileDialog>
+#include <QMessageBox>
+#include <fstream>
+#include <algorithm>
 
 AdminDashboard::AdminDashboard(QWidget *parent)
     : QWidget(parent)
 {
     setupUI();
+    refreshDashboard();
+}
+
+void AdminDashboard::refreshDashboard()
+{
+    Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+    db.initializeTables();
+    auto students = db.getAllStudents();
+    auto records = db.getAllRecords();
+
+    int totalStudents = static_cast<int>(students.size());
+
+    // Count today's check-ins
+    std::string today = QDate::currentDate().toString("yyyy-MM-dd").toStdString();
+    int todayCount = 0;
+    int lateTally = 0;
+    for (auto &r : records) {
+        if (r.date == today) {
+            ++todayCount;
+            if (r.time > "09:00:00") ++lateTally;
+        }
+    }
+
+    int attendancePct = (totalStudents > 0)
+        ? (todayCount * 100) / totalStudents
+        : 0;
+
+    if (totalStudents > 0) {
+        progressCircle->setPercentage(attendancePct);
+        int presentOnTime = todayCount - lateTally;
+        presentCount->setText(QString::number(presentOnTime) + " Present");
+        lateCount->setText(QString::number(lateTally) + " Late");
+        absentCount->setText(QString::number(totalStudents - todayCount) + " Absent");
+    } else {
+        progressCircle->setPercentage(0);
+        presentCount->setText("No Data");
+        this->lateCount->setText("");
+        absentCount->setText("");
+    }
+
+    // Build Recent Check-ins (last 5)
+    QLayout *oldLayout = recentCard->layout();
+    if (oldLayout) {
+        QLayoutItem *item;
+        while ((item = oldLayout->takeAt(0))) {
+            if (item->widget()) delete item->widget();
+            delete item;
+        }
+        delete oldLayout;
+    }
+
+    QVBoxLayout *recentLayout = new QVBoxLayout(recentCard);
+    recentLayout->setContentsMargins(25, 20, 25, 20);
+    recentLayout->setSpacing(15);
+
+    QLabel *recentTitle = new QLabel("Recent Check-ins");
+    recentTitle->setFont(FontManager::headingFont(18));
+    recentTitle->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
+    recentLayout->addWidget(recentTitle);
+
+    int maxRows = std::min(5, static_cast<int>(records.size()));
+    for (int i = 0; i < maxRows; ++i) {
+        auto &r = records[i];
+        QFrame *row = new QFrame();
+        row->setStyleSheet(QString("QFrame{ background:%1; border-radius:12px; }")
+                               .arg(Theme::Input));
+        row->setMinimumHeight(50);
+
+        QHBoxLayout *rowLayout = new QHBoxLayout(row);
+        rowLayout->setContentsMargins(20, 10, 20, 10);
+
+        QLabel *avatar = new QLabel("\U0001F464");
+        avatar->setStyleSheet("font-size:24px;");
+        QLabel *name = new QLabel(QString::fromStdString(r.studentName));
+        name->setFont(FontManager::buttonFont(14));
+        name->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
+
+        bool isLate = (r.time > "09:00:00");
+        QString statusText = isLate ? "Late" : "Present";
+        QString statusColor = isLate ? Theme::Warning : Theme::Success;
+
+        QLabel *badge = new QLabel(statusText);
+        badge->setStyleSheet(
+            QString("background:%1; color:%2; padding:6px 14px; border-radius:10px;")
+                .arg(Theme::Card).arg(statusColor));
+
+        QLabel *timeLabel = new QLabel(
+            QString::fromStdString(r.time.substr(0, 5)));
+        timeLabel->setStyleSheet(QString("color:%1;").arg(Theme::Secondary));
+
+        rowLayout->addWidget(avatar);
+        rowLayout->addSpacing(10);
+        rowLayout->addWidget(name);
+        rowLayout->addStretch();
+        rowLayout->addWidget(badge);
+        rowLayout->addSpacing(20);
+        rowLayout->addWidget(timeLabel);
+
+        recentLayout->addWidget(row);
+    }
+
+    if (records.empty()) {
+        QLabel *noData = new QLabel("No attendance records yet.");
+        noData->setStyleSheet(QString("color:%1;").arg(Theme::Secondary));
+        noData->setAlignment(Qt::AlignCenter);
+        recentLayout->addWidget(noData);
+    }
 }
 
 void AdminDashboard::setupUI()
 {
     setWindowTitle("Admin Dashboard");
     resize(1400,850);
+    setMinimumSize(1300, 800);
     setObjectName("AdminDashboard");
 
     setStyleSheet(QString(R"(
@@ -45,11 +159,9 @@ QLineEdit{
     color:%2;
     font-size:14px;
 }
-
 QLineEdit:focus{
     border:1px solid %5;
 }
-
 QPushButton{
     background:%6;
     color:%2;
@@ -57,7 +169,6 @@ QPushButton{
     border-radius:10px;
     padding:10px 20px;
 }
-
 QPushButton:hover{
     background:%7;
 }
@@ -74,10 +185,7 @@ QPushButton:hover{
     mainLayout->setContentsMargins(30,25,30,25);
     mainLayout->setSpacing(25);
 
-    //----------------------------------------------------
     // Header
-    //----------------------------------------------------
-
     QHBoxLayout *header = new QHBoxLayout();
 
     QPushButton *backButton = new QPushButton("← Back");
@@ -96,35 +204,26 @@ QPushButton:hover{
     title->setStyleSheet(QString("color:%1;").arg(Theme::Gold));
 
     QLabel *date = new QLabel(
-        QDate::currentDate().toString("dddd • MMMM d, yyyy")
-        );
-
+        QDate::currentDate().toString("dddd • MMMM d, yyyy"));
     date->setStyleSheet(QString("color:%1;").arg(Theme::Secondary));
 
     titleLayout->addWidget(title);
     titleLayout->addWidget(date);
-
 
     header->addWidget(backButton);
     header->addSpacing(25);
     header->addLayout(titleLayout);
     header->addStretch();
 
-
     mainLayout->addLayout(header);
 
-    //----------------------------------------------------
     // Dashboard Row
-    //----------------------------------------------------
-
     QHBoxLayout *topCards = new QHBoxLayout();
     topCards->setSpacing(20);
 
+    // Attendance Card
     QFrame *attendanceCard = new QFrame();
     attendanceCard->setMinimumSize(400,200);
-
-
-
     attendanceCard->setStyleSheet(QString(R"(
 QFrame{
     background:%1;
@@ -140,50 +239,21 @@ QFrame{
     shadow1->setOffset(0,4);
     shadow1->setColor(QColor(0,0,0,140));
     attendanceCard->setGraphicsEffect(shadow1);
-    //================ Attendance Card Layout =================
 
     QHBoxLayout *attendanceLayout = new QHBoxLayout(attendanceCard);
     attendanceLayout->setContentsMargins(30,25,30,25);
     attendanceLayout->setSpacing(25);
 
-    // Left Side (Circle)
+    // Left Side (Circle progress)
     QVBoxLayout *circleLayout = new QVBoxLayout();
+    circleLayout->setAlignment(Qt::AlignCenter);
 
-    QFrame *circle = new QFrame();
-    circle->setFixedSize(120,120);
-
-    circle->setStyleSheet(QString(R"(
-QFrame{
-    background:transparent;
-    border:8px solid %1;
-    border-radius:60px;
-}
-)")
-                              .arg(Theme::Gold));
-
-    QVBoxLayout *circleTextLayout = new QVBoxLayout(circle);
-
-    QLabel *percent = new QLabel("-%");
-    percent->setAlignment(Qt::AlignCenter);
-    percent->setFont(FontManager::headingFont(24));
-    percent->setStyleSheet(QString("color:%1; border:none;").arg(Theme::Primary));
-
-    QLabel *presentLabel = new QLabel("Present");
-    presentLabel->setAlignment(Qt::AlignCenter);
-    presentLabel->setStyleSheet(
-        QString("color:%1;"
-                "border:none;").arg(Theme::Secondary)
-        );
-
-    circleTextLayout->addStretch();
-    circleTextLayout->addWidget(percent);
-    circleTextLayout->addWidget(presentLabel);
-    circleTextLayout->addStretch();
+    progressCircle = new CircularProgress();
+    progressCircle->setPercentage(0);
 
     circleLayout->addStretch();
-    circleLayout->addWidget(circle);
+    circleLayout->addWidget(progressCircle);
     circleLayout->addStretch();
-
     attendanceLayout->addLayout(circleLayout);
 
     // Right Side
@@ -194,48 +264,35 @@ QFrame{
     QLabel *attendanceTitle = new QLabel("Today's Attendance");
     attendanceTitle->setMinimumWidth(260);
     attendanceTitle->setMinimumHeight(40);
-    attendanceTitle->setSizePolicy(QSizePolicy::Expanding,
-                                   QSizePolicy::Preferred);
+    attendanceTitle->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     attendanceTitle->setFont(FontManager::headingFont(18));
     attendanceTitle->setStyleSheet(QString("border:none; color:%1;").arg(Theme::Primary));
     statsLayout->addWidget(attendanceTitle);
 
     statsLayout->addSpacing(15);
 
-    QLabel *present = new QLabel("🟢 - Present");
-    present->setStyleSheet(
-        QString("color:%1;"
-                "font-size:16px;"
-                "border:none;").arg(Theme::Success)
-        );
+    presentCount = new QLabel("🟢 - Present");
+    presentCount->setStyleSheet(
+        QString("color:%1; font-size:16px; border:none;").arg(Theme::Success));
 
-    QLabel *late = new QLabel("🟡 - Late");
-    late->setStyleSheet(
-        QString("color:%1;"
-                "font-size:16px;"
-                "border:none;").arg(Theme::Warning)
-        );
+    lateCount = new QLabel("🟡 - Late");
+    lateCount->setStyleSheet(
+        QString("color:%1; font-size:16px; border:none;").arg(Theme::Warning));
 
-    QLabel *absent = new QLabel("🔴 - Absent");
-    absent->setStyleSheet(
-        QString("color:%1;"
-                "font-size:16px;"
-                "border:none;").arg(Theme::Danger)
-        );
+    absentCount = new QLabel("🔴 - Absent");
+    absentCount->setStyleSheet(
+        QString("color:%1; font-size:16px; border:none;").arg(Theme::Danger));
 
-    statsLayout->addWidget(present);
-    statsLayout->addWidget(late);
-    statsLayout->addWidget(absent);
-
+    statsLayout->addWidget(presentCount);
+    statsLayout->addWidget(lateCount);
+    statsLayout->addWidget(absentCount);
     statsLayout->addStretch();
 
     attendanceLayout->addLayout(statsLayout);
-    //this week
 
+    // Week Card
     QFrame *weekCard = new QFrame();
     weekCard->setMinimumSize(550,200);
-
-
     weekCard->setStyleSheet(QString(R"(
 QFrame{
     background:%1;
@@ -261,15 +318,38 @@ QFrame{
     weekTitle->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
     weekLayout->addWidget(weekTitle);
 
+    // Compute weekly data from DB
+    Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+    db.initializeTables();
+    auto allRecords = db.getAllRecords();
+    auto allStudents = db.getAllStudents();
+    int totalStudents = static_cast<int>(allStudents.size());
+
+    // Count attendance per day of current week
+    QDate today = QDate::currentDate();
+    QDate monday = today.addDays(-(today.dayOfWeek() - 1));
+    std::map<int, int> dayCount; // 1=Mon..7=Sun
+    for (auto &r : allRecords) {
+        QDate d = QDate::fromString(QString::fromStdString(r.date), "yyyy-MM-dd");
+        if (d.isValid() && d >= monday && d <= today) {
+            dayCount[d.dayOfWeek()]++;
+        }
+    }
+
+    QStringList days = {"Mon","Tue","Wed","Thu","Fri","Sat","Sun"};
+    QList<int> values;
+    for (int i = 1; i <= 7; ++i) {
+        int pct = (totalStudents > 0)
+            ? (dayCount[i] * 100) / totalStudents
+            : 0;
+        values.append(pct);
+    }
 
     QHBoxLayout *barsLayout = new QHBoxLayout();
     barsLayout->setSpacing(18);
     barsLayout->setAlignment(Qt::AlignBottom);
-    QStringList days = {"Mon","Tue","Wed","Thu","Fri","Sat","Sun"};
-    QList<int> values = {65,82,90,78,60,45,88};
 
-    for(int i=0;i<7;i++)
-    {
+    for (int i = 0; i < 7; i++) {
         QVBoxLayout *dayLayout = new QVBoxLayout();
 
         QProgressBar *bar = new QProgressBar();
@@ -285,7 +365,6 @@ QProgressBar{
     border-radius:8px;
     background:%2;
 }
-
 QProgressBar::chunk{
     background:%3;
     border-radius:8px;
@@ -301,24 +380,17 @@ QProgressBar::chunk{
 
         dayLayout->addWidget(bar,0,Qt::AlignCenter);
         dayLayout->addWidget(day);
-
         barsLayout->addLayout(dayLayout);
     }
 
     weekLayout->addLayout(barsLayout);
     topCards->addWidget(attendanceCard);
     topCards->addWidget(weekCard);
-
     mainLayout->addLayout(topCards);
 
-
-    //----------------------------------------------------
     // Recent Check-ins
-    //----------------------------------------------------
-
-    QFrame *recentCard = new QFrame();
+    recentCard = new QFrame();
     recentCard->setMinimumHeight(220);
-
     recentCard->setStyleSheet(QString(R"(
 QFrame{
     background:%1;
@@ -335,116 +407,18 @@ QFrame{
     shadow3->setColor(QColor(0,0,0,140));
     recentCard->setGraphicsEffect(shadow3);
 
-    QVBoxLayout *recentLayout = new QVBoxLayout(recentCard);
-    recentLayout->setContentsMargins(25,20,25,20);
-    recentLayout->setSpacing(15);
-
-    QLabel *recentTitle = new QLabel("Recent Check-ins");
-    recentTitle->setFont(FontManager::headingFont(18));
-    recentTitle->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
-
-    recentLayout->addWidget(recentTitle);
-
-    QStringList students = {
-        "Prachika",
-        "Subhechha",
-        "Aryan"
-    };
-
-    QStringList status = {
-        "Present",
-        "Late",
-        "Present"
-    };
-
-    QStringList time = {
-        "08:42 AM",
-        "09:01 AM",
-        "08:37 AM",
-    };
-
-    for(int i=0;i<students.size();i++)
-    {
-        QFrame *row = new QFrame();
-
-        row->setStyleSheet(QString(R"(
-QFrame{
-    background:%1;
-    border-radius:12px;
-}
-)")
-                               .arg(Theme::Input));
-
-        row->setMinimumHeight(50);
-
-        QHBoxLayout *rowLayout = new QHBoxLayout(row);
-        rowLayout->setContentsMargins(20,10,20,10);
-
-        QLabel *avatar = new QLabel("👤");
-        avatar->setStyleSheet("font-size:24px;");
-        QLabel *name = new QLabel(students[i]);
-        name->setFont(FontManager::buttonFont(14));
-        name->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
-
-        QLabel *badge = new QLabel(status[i]);
-
-        if(status[i]=="Present")
-            badge->setStyleSheet(
-                QString("background:%1;"
-                        "color:%2;"
-                        "padding:6px 14px;"
-                        "border-radius:10px;")
-                    .arg(Theme::Card)
-                    .arg(Theme::Success)
-                );
-
-        else if(status[i]=="Late")
-            badge->setStyleSheet(
-                QString("background:%1;"
-                        "color:%2;"
-                        "padding:6px 14px;"
-                        "border-radius:10px;")
-                    .arg(Theme::Card)
-                    .arg(Theme::Warning)
-                );
-
-        else
-            badge->setStyleSheet(
-                QString("background:%1;"
-                        "color:%2;"
-                        "padding:6px 14px;"
-                        "border-radius:10px;")
-                    .arg(Theme::Card)
-                    .arg(Theme::Danger)
-                );
-
-        QLabel *timeLabel = new QLabel(time[i]);
-        timeLabel->setStyleSheet(QString("color:%1;").arg(Theme::Secondary));
-
-        rowLayout->addWidget(avatar);
-        rowLayout->addSpacing(10);
-        rowLayout->addWidget(name);
-        rowLayout->addStretch();
-        rowLayout->addWidget(badge);
-        rowLayout->addSpacing(20);
-        rowLayout->addWidget(timeLabel);
-
-        recentLayout->addWidget(row);
-    }
+    // Placeholder layout - will be rebuilt in refreshDashboard()
+    new QVBoxLayout(recentCard);
     mainLayout->addWidget(recentCard);
-    //----------------------------------------------------
-    // Bottom Cards Placeholder
-    //----------------------------------------------------
 
+    // Bottom Cards
     QHBoxLayout *bottomRow = new QHBoxLayout();
     bottomRow->setSpacing(20);
 
-    //================ Manage Students Card =================
-
+    // Manage Students Card
     QFrame *manageCard = new QFrame();
     manageCard->setObjectName("manageCard");
     manageCard->setMinimumSize(95,95);
-
     manageCard->setStyleSheet(QString(R"(
 #manageCard{
     background:%1;
@@ -463,8 +437,8 @@ QFrame{
 
     QVBoxLayout *manageLayout = new QVBoxLayout(manageCard);
     manageLayout->setContentsMargins(10,10,10,10);
-
     manageLayout->setSpacing(8);
+
     QLabel *manageIcon = new QLabel();
     manageIcon->setFixedSize(36,36);
     manageIcon->setAlignment(Qt::AlignCenter);
@@ -482,26 +456,19 @@ QLabel{
     manageTitle->setFont(FontManager::headingFont(16));
     manageTitle->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
 
-    QLabel *manageDesc = new QLabel(
-        "View, edit and delete\nregistered students."
-        );
-
+    QLabel *manageDesc = new QLabel("View, edit and delete registered students.");
     manageDesc->setAlignment(Qt::AlignCenter);
     manageDesc->setWordWrap(true);
     manageDesc->setStyleSheet(
-        QString("color:%1;"
-                "font-size:16px;").arg(Theme::Secondary)
-        );
+        QString("color:%1; font-size:16px;").arg(Theme::Secondary));
 
     QPushButton *manageButton = new QPushButton("Open");
-    connect(manageButton, &QPushButton::clicked, this, [this]()
-            {
-                auto *window = new ManageStudentsWindow();
-                window->show();
-                this->close();
-            });
+    connect(manageButton, &QPushButton::clicked, this, [this]() {
+        auto *window = new ManageStudentsWindow();
+        window->show();
+        this->close();
+    });
     manageButton->setMinimumHeight(20);
-
     manageButton->setStyleSheet(QString(R"(
 QPushButton{
     background:%1;
@@ -510,7 +477,6 @@ QPushButton{
     border-radius:10px;
     font-weight:bold;
 }
-
 QPushButton:hover{
     background:%3;
 }
@@ -524,15 +490,12 @@ QPushButton:hover{
     manageLayout->addWidget(manageDesc);
     manageLayout->addStretch();
     manageLayout->addWidget(manageButton);
-
     bottomRow->addWidget(manageCard);
 
-    //================ Attendance Records Card =================
-
+    // Attendance Records Card
     QFrame *recordCard = new QFrame();
     recordCard->setObjectName("recordCard");
     recordCard->setMinimumSize(95,95);
-
     recordCard->setStyleSheet(QString(R"(
 #recordCard{
     background:%1;
@@ -570,26 +533,19 @@ QLabel{
     recordTitle->setFont(FontManager::headingFont(16));
     recordTitle->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
 
-    QLabel *recordDesc = new QLabel(
-        "View daily, weekly and\nmonthly attendance."
-        );
-
+    QLabel *recordDesc = new QLabel("View daily, weekly and monthly attendance.");
     recordDesc->setAlignment(Qt::AlignCenter);
     recordDesc->setWordWrap(true);
     recordDesc->setStyleSheet(
-        QString("color:%1;"
-                "font-size:16px;").arg(Theme::Secondary)
-        );
+        QString("color:%1; font-size:16px;").arg(Theme::Secondary));
 
     QPushButton *recordButton = new QPushButton("Open");
-    connect(recordButton, &QPushButton::clicked, this, [this]()
-            {
-                auto *window = new AttendanceRecordsWindow();
-                window->show();
-                this->close();
-            });
+    connect(recordButton, &QPushButton::clicked, this, [this]() {
+        auto *window = new AttendanceRecordsWindow();
+        window->show();
+        this->close();
+    });
     recordButton->setMinimumHeight(20);
-
     recordButton->setStyleSheet(QString(R"(
 QPushButton{
     background:%1;
@@ -611,15 +567,12 @@ QPushButton:hover{
     recordLayout->addWidget(recordDesc);
     recordLayout->addStretch();
     recordLayout->addWidget(recordButton);
-
     bottomRow->addWidget(recordCard);
 
-    //================ Export Reports Card =================
-
+    // Export Reports Card
     QFrame *exportCard = new QFrame();
     exportCard->setObjectName("exportCard");
     exportCard->setMinimumSize(95,95);
-
     exportCard->setStyleSheet(QString(R"(
 #exportCard{
     background:%1;
@@ -657,20 +610,14 @@ QLabel{
     exportTitle->setFont(FontManager::headingFont(16));
     exportTitle->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
 
-    QLabel *exportDesc = new QLabel(
-        "Export attendance\nreports as PDF or CSV."
-        );
-
+    QLabel *exportDesc = new QLabel("Export attendance reports as CSV.");
     exportDesc->setAlignment(Qt::AlignCenter);
     exportDesc->setWordWrap(true);
     exportDesc->setStyleSheet(
-        QString("color:%1;"
-                "font-size:16px;").arg(Theme::Secondary)
-        );
+        QString("color:%1; font-size:16px;").arg(Theme::Secondary));
 
-    QPushButton *exportButton = new QPushButton("Open");
+    QPushButton *exportButton = new QPushButton("Export");
     exportButton->setMinimumHeight(20);
-
     exportButton->setStyleSheet(QString(R"(
 QPushButton{
     background:%1;
@@ -687,12 +634,35 @@ QPushButton:hover{
                                     .arg(Theme::Card)
                                     .arg(Theme::Warning));
 
+    connect(exportButton, &QPushButton::clicked, this, [this]() {
+        QString filePath = QFileDialog::getSaveFileName(
+            this, "Export Attendance CSV", "attendance_export.csv", "CSV Files (*.csv)");
+        if (filePath.isEmpty()) return;
+
+        Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+        db.initializeTables();
+        auto records = db.getAllRecords();
+
+        std::ofstream csv(filePath.toStdString());
+        csv << "ID,Student Name,Roll No,Date,Time\n";
+        for (auto &r : records) {
+            csv << r.id << ","
+                << r.studentName << ","
+                << r.rollNumber << ","
+                << r.date << ","
+                << r.time << "\n";
+        }
+        csv.close();
+
+        QMessageBox::information(this, "Export Complete",
+                                 "Attendance data exported to:\n" + filePath);
+    });
+
     exportLayout->addWidget(exportIcon);
     exportLayout->addWidget(exportTitle);
     exportLayout->addWidget(exportDesc);
     exportLayout->addStretch();
     exportLayout->addWidget(exportButton);
-
     bottomRow->addWidget(exportCard);
 
     mainLayout->addLayout(bottomRow);

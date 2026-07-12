@@ -1,6 +1,29 @@
-.vs/
+# OS
 .DS_Store
+Thumbs.db
+
+# IDE
+.vs/
+.vscode/
+.qt/
+*.user
+*.pro.user*
+
+# Build
 build/
-docs/AI_AGENT_GUIDE.md
-resources/trained_models/
+
+# Database
+*.db
+
+# Generated / export
 attendance.csv
+*.csv
+
+# Development scripts
+*.py
+
+# Training data
+resources/trained_models/
+
+# Docs
+docs/AI_AGENT_GUIDE.md
