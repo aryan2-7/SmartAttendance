@@ -45,6 +45,11 @@ StudentRegistrationWindow::StudentRegistrationWindow(QWidget *parent)
     std::string modelPath = std::string(PROJECT_SOURCE_DIR) + "/resources/models/face_detection_yunet_2023mar.onnx";
     detector_ = cv::FaceDetectorYN::create(modelPath, "", cv::Size(480, 270), 0.9f, 0.3f, 5000);
 
+    std::string livenessDir = std::string(PROJECT_SOURCE_DIR) + "/resources/models/";
+    if (!liveness_.loadModels(livenessDir)) {
+        statusLabel->setText("Warning: Liveness models not loaded.");
+    }
+
     frameTimer_ = new QTimer(this);
     connect(frameTimer_, &QTimer::timeout, this, &StudentRegistrationWindow::onFrameTimer);
     frameTimer_->start(33);
@@ -338,8 +343,10 @@ void StudentRegistrationWindow::onRegisterClicked() {
     sampleCount_ = 0;
     embeddings_.clear();
     capturing_ = true;
+    livenessPassed_ = false;
+    liveness_.reset();
     registerButton->setEnabled(false);
-    statusLabel->setText("Capturing: 0%");
+    statusLabel->setText("Look at the camera and follow instructions...");
 }
 
 void StudentRegistrationWindow::onFrameTimer() {
@@ -358,21 +365,41 @@ void StudentRegistrationWindow::onFrameTimer() {
         cv::rectangle(frame, {x, y}, {x + w, y + h}, {0, 255, 0}, 2);
 
         if (capturing_ && recognizer_) {
-            cv::Mat aligned, feat;
-            recognizer_->alignCrop(frame, faceBox, aligned);
-            recognizer_->feature(aligned, feat);
-            embeddings_.push_back(feat.clone());
-            sampleCount_++;
+            if (!livenessPassed_) {
+                LivenessStatus ls = liveness_.process(frame, faceBox);
+                statusLabel->setText(
+                    QString::fromStdString(liveness_.statusMessage()));
 
-            statusLabel->setText(QString("Capturing: %1%").arg((sampleCount_ * 100) / SAMPLES));
+                if (ls == LivenessStatus::Failed || ls == LivenessStatus::Timeout) {
+                    liveness_.reset();
+                    livenessPassed_ = false;
+                } else if (ls == LivenessStatus::Verified) {
+                    livenessPassed_ = true;
+                    statusLabel->setText("Liveness verified! Capturing: 0%");
+                }
+            } else {
+                cv::Mat aligned, feat;
+                recognizer_->alignCrop(frame, faceBox, aligned);
+                recognizer_->feature(aligned, feat);
+                embeddings_.push_back(feat.clone());
+                sampleCount_++;
 
-            if (sampleCount_ >= SAMPLES) {
-                capturing_ = false;
-                saveEmbeddings(nameEdit->text().trimmed(), rollEdit->text().trimmed());
+                statusLabel->setText(QString("Capturing: %1%").arg((sampleCount_ * 100) / SAMPLES));
+
+                if (sampleCount_ >= SAMPLES) {
+                    capturing_ = false;
+                    saveEmbeddings(nameEdit->text().trimmed(), rollEdit->text().trimmed());
+                }
             }
         }
     } else if (capturing_) {
+        if (livenessPassed_) {
+            livenessPassed_ = false;
+            liveness_.reset();
+        }
         statusLabel->setText("No face detected!");
+    } else if (!capturing_ && !livenessPassed_) {
+        statusLabel->setText("Position your face in the camera.");
     }
 
     cv::Mat displayFrame;

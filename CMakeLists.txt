@@ -109,6 +109,9 @@ set(SOURCES
     src/admin/AttendanceRecordsWindow.cpp
     src/admin/CircularProgress.cpp
 
+    # Module 7 – Liveness Detection
+    src/liveness/LivenessDetector.cpp
+
     ${SQLITE_SOURCES}
 )
 
@@ -123,6 +126,7 @@ add_executable(SmartAttendance
     src/admin/ManageStudentsWindow.h
     src/admin/AttendanceRecordsWindow.h
     src/admin/CircularProgress.h
+    src/liveness/LivenessDetector.h
     src/theme/Theme.h
     fonts.qrc
 )
@@ -136,6 +140,7 @@ target_include_directories(SmartAttendance PRIVATE
     src/attendance
     src/db
     src/admin
+    src/liveness
     src/theme
 )
 

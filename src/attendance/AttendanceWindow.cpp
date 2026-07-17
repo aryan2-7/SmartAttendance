@@ -34,6 +34,10 @@ AttendanceWindow::AttendanceWindow(QWidget *parent) : QWidget(parent) {
     recognizer_ = cv::FaceRecognizerSF::create(
         modelDir + "face_recognition_sface_2021dec.onnx", "");
 
+    if (!liveness_.loadModels(modelDir)) {
+        statusLabel->setText("Warning: Liveness models not loaded.");
+    }
+
     if (!loadGallery()) {
         statusLabel->setText("No students registered yet.");
     }
@@ -165,33 +169,57 @@ void AttendanceWindow::onFrameTimer() {
         int h = static_cast<int>(faceBox.at<float>(0, 3));
         cv::rectangle(frame, {x, y}, {x + w, y + h}, {0, 255, 0}, 2);
 
-        cv::Mat aligned, feat;
-        recognizer_->alignCrop(frame, faceBox, aligned);
-        recognizer_->feature(aligned, feat);
+        if (!livenessPassed_) {
+            LivenessStatus ls = liveness_.process(frame, faceBox);
+            statusLabel->setText(
+                QString::fromStdString(liveness_.statusMessage()));
 
-        int matchIdx = matchFace(feat);
-        if (matchIdx >= 0) {
-            auto &s = students_[matchIdx];
-            auto now = std::chrono::steady_clock::now();
-            bool canLog = true;
-            if (lastLogged_.count(s.roll)) {
-                auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
-                    now - lastLogged_[s.roll]).count();
-                if (elapsed < COOLDOWN_SECONDS) canLog = false;
+            if (ls == LivenessStatus::Failed || ls == LivenessStatus::Timeout) {
+                liveness_.reset();
+                livenessPassed_ = false;
+            } else if (ls == LivenessStatus::Verified) {
+                livenessPassed_ = true;
             }
-            if (canLog) {
-                logAttendance(s);
-                lastLogged_[s.roll] = now;
-                statusLabel->setText(
-                    QString::fromStdString(s.name + " - Attendance Marked!"));
+        }
+
+        if (livenessPassed_) {
+            livenessGraceFrames_ = 0;
+            cv::Mat aligned, feat;
+            recognizer_->alignCrop(frame, faceBox, aligned);
+            recognizer_->feature(aligned, feat);
+
+            int matchIdx = matchFace(feat);
+            if (matchIdx >= 0) {
+                auto &s = students_[matchIdx];
+                auto now = std::chrono::steady_clock::now();
+                bool canLog = true;
+                if (lastLogged_.count(s.roll)) {
+                    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                        now - lastLogged_[s.roll]).count();
+                    if (elapsed < COOLDOWN_SECONDS) canLog = false;
+                }
+                if (canLog) {
+                    logAttendance(s);
+                    lastLogged_[s.roll] = now;
+                    statusLabel->setText(
+                        QString::fromStdString(s.name + " - Attendance Marked!"));
+                } else {
+                    statusLabel->setText(
+                        QString::fromStdString(s.name + " - already logged recently."));
+                }
             } else {
-                statusLabel->setText(
-                    QString::fromStdString(s.name + " - already logged recently."));
+                statusLabel->setText("Unknown Face");
             }
-        } else {
-            statusLabel->setText("Unknown Face");
         }
     } else {
+        if (livenessPassed_) {
+            livenessGraceFrames_++;
+            if (livenessGraceFrames_ > 30) {
+                livenessPassed_ = false;
+                liveness_.reset();
+                livenessGraceFrames_ = 0;
+            }
+        }
         statusLabel->setText("No face detected.");
     }
 
@@ -232,5 +260,9 @@ int AttendanceWindow::matchFace(const cv::Mat &feat) {
 void AttendanceWindow::logAttendance(const StudentRecord &s) {
     Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
     db.initializeTables();
-    db.markAttendance(std::stoi(s.roll), s.name);
+    bool ok = db.markAttendance(std::stoi(s.roll), s.name);
+    if (!ok) {
+        statusLabel->setText(
+            QString::fromStdString(s.name + " - already marked today or error."));
+    }
 }
