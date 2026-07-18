@@ -109,9 +109,9 @@ bool Database::initializeTables() {
             UNIQUE(attendanceStudentId, attendanceSessionId)
         );
     )";
-     std::string defaultUser =
-        "INSERT OR IGNORE INTO users (username, password) "
-        "VALUES ('admin', 'admin123');";
+    std::string defaultUser =
+    "INSERT OR IGNORE INTO users (username, password, salt) "
+    "VALUES ('admin', 'admin123', 'default_salt_here');";
 
 
     // Execute the table creation commands
