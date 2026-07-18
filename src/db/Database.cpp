@@ -108,14 +108,13 @@ bool Database::initializeTables() {
             UNIQUE(attendanceStudentId, attendanceSessionId)
         );
     )";
-
+     std::string defaultUser =
+        "INSERT OR IGNORE INTO users (username, password) "
+        "VALUES ('admin', 'admin123');";
 
 
     // Execute the table creation commands
-    return (execute(usersTable) && 
-            execute(studentsTable) && 
-            execute(subjectsTable) && 
-            execute(enrollmentsTable) && 
-            execute(classSessionsTable) && 
-            execute(attendanceTable));
+    if (!execute(usersTable) || !execute(studentsTable) || !execute(attendanceTable)|| !execute(classSessionsTable) || !execute(enrollmentsTable) || !execute(subjectsTable) || !execute(defaultUser)) {
+        return false;
+    }
 }
