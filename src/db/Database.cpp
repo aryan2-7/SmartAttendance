@@ -56,7 +56,7 @@ bool Database::initializeTables() {
         CREATE TABLE IF NOT EXISTS students (
             studentId INTEGER PRIMARY KEY AUTOINCREMENT,
             studentName TEXT NOT NULL,
-            rollNumber INTEGER UNIQUE NOT NULL,
+            studentRollNumber INTEGER UNIQUE NOT NULL,
             modelPath TEXT NOT NULL
         );
     )";
@@ -115,7 +115,13 @@ bool Database::initializeTables() {
 
 
     // Execute the table creation commands
-    if (!execute(usersTable) || !execute(studentsTable) || !execute(attendanceTable)|| !execute(classSessionsTable) || !execute(enrollmentsTable) || !execute(subjectsTable) || !execute(defaultUser)) {
-        return false;
-    }
+if (!execute(usersTable) || 
+    !execute(studentsTable) || 
+    !execute(subjectsTable) ||       
+    !execute(enrollmentsTable) ||    
+    !execute(classSessionsTable) ||  
+    !execute(attendanceTable) ||    
+    !execute(defaultUser)) {
+    return false;
+}
 }
