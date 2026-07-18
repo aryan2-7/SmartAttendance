@@ -150,16 +150,17 @@ std::vector<SubjectAttendancePercentage> AttendanceDAO::getSubjectAttendancePerc
 
     const char* sql = 
         "SELECT s.studentId, s.studentName, s.studentRollNumber, "
-        "       COUNT(a.attendanceId) * 100.0 / cs_cnt.total AS pct "
+        "CASE WHEN COALESCE(cs_cnt.total, 0) = 0 THEN 0.0 "
+        "       ELSE COUNT(a.attendanceId) * 100.0 / cs_cnt.total AS pct "
         "FROM enrollments e "
         "JOIN students s ON s.studentId = e.enrollmentStudentId "
         "JOIN subjects sub ON sub.subjectId = e.enrollmentSubjectId "
         "JOIN ( "
         "  SELECT sessionSubjectId, COUNT(*) AS total "
-        "  FROM class_sessions WHERE sessionDate <= date('now') "
+        "  FROM class_sessions WHERE sessionDate <= date('now', 'localtime') "
         "  GROUP BY sessionSubjectId) cs_cnt ON cs_cnt.sessionSubjectId = sub.subjectId "
         "LEFT JOIN class_sessions cs "
-        "  ON cs.sessionSubjectId = sub.subjectId AND cs.sessionDate <= date('now') "
+        "  ON cs.sessionSubjectId = sub.subjectId AND cs.sessionDate <= date('now', 'localtime') "
         "LEFT JOIN attendance a "
         "  ON a.attendanceStudentId = s.studentId AND a.attendanceSessionId = cs.sessionId "
         "WHERE sub.subjectId = ? "
@@ -178,11 +179,14 @@ std::vector<SubjectAttendancePercentage> AttendanceDAO::getSubjectAttendancePerc
         SubjectAttendancePercentage calculatedRow;
         
         calculatedRow.percentageStudentId = sqlite3_column_int(stmt, 0);
-        calculatedRow.percentageStudentName = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+
+        const char* nameText = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        if (nameText) {
+            calculatedRow.percentageStudentName = nameText;
+        }
+        
         calculatedRow.percentageRollNumber = sqlite3_column_int(stmt, 2);
-        
         calculatedRow.calculatedPercentage = sqlite3_column_double(stmt, 3);
-        
         calculationList.push_back(calculatedRow);
     }
     
