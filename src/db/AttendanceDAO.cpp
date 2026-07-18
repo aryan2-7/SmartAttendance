@@ -31,8 +31,8 @@ bool AttendanceDAO::isEnrolled(int studentId, int subjectId) {
 int AttendanceDAO::findCurrentSession() {
     const char* sql =
         "SELECT sessionId FROM class_sessions "
-        "WHERE sessionDate = date('now') "
-        "AND time('now') BETWEEN sessionStartTime AND sessionEndTime "
+        "WHERE sessionDate = date('now', 'localtime') "
+        "AND time('now', 'localtime') BETWEEN sessionStartTime AND sessionEndTime "
         "LIMIT 1;";
     sqlite3_stmt* stmt = nullptr;
 
@@ -52,16 +52,22 @@ int AttendanceDAO::findCurrentSession() {
 // Mark attendance for a student in a specific class session.
 
 bool AttendanceDAO::markAttendance(int attendanceStudentId, int attendanceSessionId,const std::string& attendanceTime, const std::string& attendanceStatus) {
-    const char* sessionSql = "SELECT sessionSubjectId FROM class_sessions WHERE sessionId = ?;";
+    const char* sessionSql = "SELECT sessionSubjectId, sessionDate FROM class_sessions WHERE sessionId = ?;";
     sqlite3_stmt* stmt = nullptr;
 
     if (sqlite3_prepare_v2(db, sessionSql, -1, &stmt, nullptr) != SQLITE_OK) return false;
     sqlite3_bind_int(stmt, 1, attendanceSessionId);
 
     int sessionSubjectId = -1;
+    std::string sessionDate;
     bool sessionFound = false;
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         sessionSubjectId = sqlite3_column_int(stmt, 0);
+
+        const char* dateText = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        if (dateText) {
+            sessionDate = dateText;
+        }
         sessionFound = true;
     }
     sqlite3_finalize(stmt);
@@ -72,8 +78,10 @@ bool AttendanceDAO::markAttendance(int attendanceStudentId, int attendanceSessio
     time_t now = time(nullptr);
     char dateBuf[11]; 
     char timeBuf[9]; 
+
     strftime(dateBuf, sizeof(dateBuf), "%Y-%m-%d", localtime(&now));
     strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", localtime(&now));
+    std::string finalTime = attendanceTime.empty() ? timeBuf : attendanceTime;
 
     const char* checkSql = "SELECT COUNT(*) FROM attendance WHERE attendanceStudentId = ? AND attendanceSessionId = ?;";
     
@@ -120,10 +128,14 @@ std::vector<AttendanceRecord> AttendanceDAO::getAllRecords() {
         r.attendanceId        = sqlite3_column_int(stmt, 0);
         r.attendanceStudentId = sqlite3_column_int(stmt, 1);
         r.attendanceSessionId = sqlite3_column_int(stmt, 2);
-        r.attendanceDate      = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
-        r.attendanceTime      = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
-        r.attendanceStatus    = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
-        
+        const char* dText = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        const char* tText = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+        const char* sText = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+
+        if (dText) r.attendanceDate = dText;
+        if (tText) r.attendanceTime = tText;
+        if (sText) r.attendanceStatus = sText;
+
         records.push_back(r);
     }
     
