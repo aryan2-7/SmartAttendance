@@ -159,7 +159,7 @@ std::vector<SubjectAttendancePercentage> AttendanceDAO::getSubjectAttendancePerc
         "JOIN subjects sub ON sub.subjectId = e.enrollmentSubjectId "
         "JOIN ( "
         "  SELECT sessionSubjectId, COUNT(*) AS total "
-        "  FROM class_sessions WHERE sessionDate <= date('now', 'localtime') "
+        "  FROM class_sessions WHERE sessionDate < date('now', 'localtime') "
         "  GROUP BY sessionSubjectId) cs_cnt ON cs_cnt.sessionSubjectId = sub.subjectId "
         "LEFT JOIN class_sessions cs "
         "  ON cs.sessionSubjectId = sub.subjectId AND cs.sessionDate <= date('now', 'localtime') "
