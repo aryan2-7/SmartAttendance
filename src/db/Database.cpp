@@ -103,6 +103,7 @@ bool Database::initializeTables() {
             attendanceId INTEGER PRIMARY KEY AUTOINCREMENT,
             attendanceStudentId INTEGER NOT NULL REFERENCES students(studentId) ON DELETE CASCADE,
             attendanceSessionId INTEGER NOT NULL REFERENCES class_sessions(sessionId) ON DELETE CASCADE,
+            attendanceDate TEXT NOT NULL REFERENCES class_sessions(sessionDate) ON DELETE CASCADE,
             attendanceTime TEXT NOT NULL,
             attendanceStatus TEXT NOT NULL DEFAULT 'present',
             UNIQUE(attendanceStudentId, attendanceSessionId)
