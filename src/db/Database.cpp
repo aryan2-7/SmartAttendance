@@ -37,3 +37,85 @@ bool Database::execute(const std::string& sql) {
     }
     return true;
 }
+
+//Initialize the database tables if they don't exist
+bool Database::initializeTables() {
+
+    // Create the users table for login
+    const std::string usersTable = R"(
+        CREATE TABLE IF NOT EXISTS users (
+            userId INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            salt TEXT NOT NULL
+        );
+    )";
+
+    //Create students table
+    const std::string studentsTable = R"(
+        CREATE TABLE IF NOT EXISTS students (
+            studentId INTEGER PRIMARY KEY AUTOINCREMENT,
+            studentName TEXT NOT NULL,
+            rollNumber INTEGER UNIQUE NOT NULL,
+            modelPath TEXT NOT NULL
+        );
+    )";
+
+    // Create the subjects table
+    const std::string subjectsTable = R"(
+        CREATE TABLE IF NOT EXISTS subjects (
+            subjectId INTEGER PRIMARY KEY AUTOINCREMENT,
+            subjectCode TEXT UNIQUE NOT NULL,
+            subjectName TEXT NOT NULL,
+            semester INTEGER NOT NULL,
+            department TEXT NOT NULL,
+            subjectMinAttendance INTEGER DEFAULT 80
+        );
+    )";
+
+    // Enrollments table
+    const std::string enrollmentsTable = R"(
+        CREATE TABLE IF NOT EXISTS enrollments (
+            enrollmentId INTEGER PRIMARY KEY AUTOINCREMENT,
+            enrollmentStudentId INTEGER NOT NULL REFERENCES students(studentId) ON DELETE CASCADE,
+            enrollmentSubjectId INTEGER NOT NULL REFERENCES subjects(subjectId) ON DELETE CASCADE,
+            UNIQUE(enrollmentStudentId, enrollmentSubjectId)
+        );
+    )";
+
+    // Create the class sessions table
+    const std::string classSessionsTable = R"(
+        CREATE TABLE IF NOT EXISTS class_sessions (
+            sessionId INTEGER PRIMARY KEY AUTOINCREMENT,
+            sessionSubjectId INTEGER NOT NULL REFERENCES subjects(subjectId) ON DELETE CASCADE,
+            sessionDate TEXT NOT NULL,
+            sessionStartTime TEXT NOT NULL,
+            sessionEndTime TEXT NOT NULL,
+            sessionRoom TEXT,
+            sessionTopic TEXT
+        );
+    )";
+
+
+    // Create the attendance table
+    const std::string  attendanceTable = R"(
+        CREATE TABLE IF NOT EXISTS attendance (
+            attendanceId INTEGER PRIMARY KEY AUTOINCREMENT,
+            attendanceStudentId INTEGER NOT NULL REFERENCES students(studentId) ON DELETE CASCADE,
+            attendanceSessionId INTEGER NOT NULL REFERENCES class_sessions(sessionId) ON DELETE CASCADE,
+            attendanceTime TEXT NOT NULL,
+            attendanceStatus TEXT NOT NULL DEFAULT 'present',
+            UNIQUE(attendanceStudentId, attendanceSessionId)
+        );
+    )";
+
+
+
+    // Execute the table creation commands
+    return (execute(usersTable) && 
+            execute(studentsTable) && 
+            execute(subjectsTable) && 
+            execute(enrollmentsTable) && 
+            execute(classSessionsTable) && 
+            execute(attendanceTable));
+}
