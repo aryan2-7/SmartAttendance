@@ -105,7 +105,7 @@ bool AttendanceDAO::markAttendance(int attendanceStudentId, int attendanceSessio
     sqlite3_bind_int(stmt, 1, attendanceStudentId);
     sqlite3_bind_int(stmt, 2, attendanceSessionId);
     sqlite3_bind_text(stmt, 3, dateBuf, -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 4, timeBuf, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 4, finalTime.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 5, attendanceStatus.c_str(), -1, SQLITE_TRANSIENT);
     
     bool ok = (sqlite3_step(stmt) == SQLITE_DONE);
@@ -153,13 +153,13 @@ std::vector<SubjectAttendancePercentage> AttendanceDAO::getSubjectAttendancePerc
     const char* sql = 
         "SELECT s.studentId, s.studentName, s.studentRollNumber, "
         "CASE WHEN COALESCE(cs_cnt.total, 0) = 0 THEN 0.0 "
-        "       ELSE COUNT(a.attendanceId) * 100.0 / cs_cnt.total AS pct "
+        "  ELSE COUNT(a.attendanceId) * 100.0 / cs_cnt.total END AS pct "
         "FROM enrollments e "
         "JOIN students s ON s.studentId = e.enrollmentStudentId "
         "JOIN subjects sub ON sub.subjectId = e.enrollmentSubjectId "
         "JOIN ( "
         "  SELECT sessionSubjectId, COUNT(*) AS total "
-        "  FROM class_sessions WHERE sessionDate < date('now', 'localtime') "
+        "  FROM class_sessions WHERE sessionDate <= date('now', 'localtime') "
         "  GROUP BY sessionSubjectId) cs_cnt ON cs_cnt.sessionSubjectId = sub.subjectId "
         "LEFT JOIN class_sessions cs "
         "  ON cs.sessionSubjectId = sub.subjectId AND cs.sessionDate <= date('now', 'localtime') "
