@@ -81,7 +81,10 @@ std::vector<StudentRecord> StudentDAO::getAllStudents() {
         while (sqlite3_step(stmt) == SQLITE_ROW) {
             StudentRecord s;
             s.studentId = sqlite3_column_int(stmt, 0);
-            s.studentName = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            const char* nameText = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            if (nameText) {
+                s.studentName = nameText;
+            }
             s.studentRollNumber = sqlite3_column_int(stmt, 2);
             const char* path = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
             if (path) s.studentModelPath = path;
