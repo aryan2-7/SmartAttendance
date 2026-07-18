@@ -1,5 +1,8 @@
 #include "Database.h"
 #include <iostream>
+#include <sqlite3.h>
+#include <string>
+#include "UserDAO.h"
 
 
 //Constructor to initialize the database connection
@@ -103,15 +106,14 @@ bool Database::initializeTables() {
             attendanceId INTEGER PRIMARY KEY AUTOINCREMENT,
             attendanceStudentId INTEGER NOT NULL REFERENCES students(studentId) ON DELETE CASCADE,
             attendanceSessionId INTEGER NOT NULL REFERENCES class_sessions(sessionId) ON DELETE CASCADE,
-            attendanceDate TEXT NOT NULL REFERENCES class_sessions(sessionDate) ON DELETE CASCADE,
+            attendanceDate TEXT NOT NULL,
             attendanceTime TEXT NOT NULL,
             attendanceStatus TEXT NOT NULL DEFAULT 'present',
             UNIQUE(attendanceStudentId, attendanceSessionId)
         );
     )";
-    std::string defaultUser =
-    "INSERT OR IGNORE INTO users (username, password, salt) "
-    "VALUES ('admin', 'admin123', 'default_salt_here');";
+    UserDAO userDAO(db);
+    userDAO.createUser("admin", "admin123");
 
 
     // Execute the table creation commands
@@ -120,8 +122,8 @@ if (!execute(usersTable) ||
     !execute(subjectsTable) ||       
     !execute(enrollmentsTable) ||    
     !execute(classSessionsTable) ||  
-    !execute(attendanceTable) ||    
-    !execute(defaultUser)) {
+    !execute(attendanceTable) ) {
     return false;
 }
+return true;
 }
