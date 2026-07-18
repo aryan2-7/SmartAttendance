@@ -5,6 +5,50 @@
 // Constructor
 AttendanceDAO::AttendanceDAO(sqlite3* databaseConnection) : db(databaseConnection) {}
 
+
+//Confirms a student is enrolled in a subject.
+bool AttendanceDAO::isEnrolled(int studentId, int subjectId) {
+    const char* sql = "SELECT COUNT(*) FROM enrollments WHERE enrollmentStudentId = ? AND enrollmentSubjectId = ?;";
+    sqlite3_stmt* stmt = nullptr;
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        return false;
+    }
+
+    sqlite3_bind_int(stmt, 1, studentId);
+    sqlite3_bind_int(stmt, 2, subjectId);
+
+    int count = 0;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        count = sqlite3_column_int(stmt, 0);
+    }
+
+    sqlite3_finalize(stmt);
+    return count > 0;
+}
+
+// Finds the class session scheduled for right now.
+int AttendanceDAO::findCurrentSession() {
+    const char* sql =
+        "SELECT sessionId FROM class_sessions "
+        "WHERE sessionDate = date('now') "
+        "AND time('now') BETWEEN sessionStartTime AND sessionEndTime "
+        "LIMIT 1;";
+    sqlite3_stmt* stmt = nullptr;
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        return -1;
+    }
+
+    int sessionId = -1;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        sessionId = sqlite3_column_int(stmt, 0);
+    }
+
+    sqlite3_finalize(stmt);
+    return sessionId;
+}
+
 // Mark attendance for a student in a specific class session.
 
 bool AttendanceDAO::markAttendance(int attendanceStudentId, int attendanceSessionId,const std::string& attendanceTime, const std::string& attendanceStatus) {
@@ -26,8 +70,8 @@ bool AttendanceDAO::markAttendance(int attendanceStudentId, int attendanceSessio
     if (!isEnrolled(attendanceStudentId, sessionSubjectId)) return false;
 
     time_t now = time(nullptr);
-    char dateBuf[11]; // "YYYY-MM-DD" + null terminator
-    char timeBuf[9];  // "HH:MM:SS" + null terminator
+    char dateBuf[11]; 
+    char timeBuf[9]; 
     strftime(dateBuf, sizeof(dateBuf), "%Y-%m-%d", localtime(&now));
     strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", localtime(&now));
 
@@ -134,45 +178,3 @@ std::vector<SubjectAttendancePercentage> AttendanceDAO::getSubjectAttendancePerc
     return calculationList;
 }
 
-// Finds the class session scheduled for right now.
-int AttendanceDAO::findCurrentSession() {
-    const char* sql =
-        "SELECT sessionId FROM class_sessions "
-        "WHERE sessionDate = date('now') "
-        "AND time('now') BETWEEN sessionStartTime AND sessionEndTime "
-        "LIMIT 1;";
-    sqlite3_stmt* stmt = nullptr;
-
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
-        return -1;
-    }
-
-    int sessionId = -1;
-    if (sqlite3_step(stmt) == SQLITE_ROW) {
-        sessionId = sqlite3_column_int(stmt, 0);
-    }
-
-    sqlite3_finalize(stmt);
-    return sessionId;
-}
-
-//Confirms a student is enrolled in a subject.
-bool AttendanceDAO::isEnrolled(int studentId, int subjectId) {
-    const char* sql = "SELECT COUNT(*) FROM enrollments WHERE enrollmentStudentId = ? AND enrollmentSubjectId = ?;";
-    sqlite3_stmt* stmt = nullptr;
-
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
-        return false;
-    }
-
-    sqlite3_bind_int(stmt, 1, studentId);
-    sqlite3_bind_int(stmt, 2, subjectId);
-
-    int count = 0;
-    if (sqlite3_step(stmt) == SQLITE_ROW) {
-        count = sqlite3_column_int(stmt, 0);
-    }
-
-    sqlite3_finalize(stmt);
-    return count > 0;
-}
