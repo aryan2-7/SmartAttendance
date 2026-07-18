@@ -112,9 +112,6 @@ bool Database::initializeTables() {
             UNIQUE(attendanceStudentId, attendanceSessionId)
         );
     )";
-    UserDAO userDAO(db);
-    userDAO.createUser("admin", "admin123");
-
 
     // Execute the table creation commands
 if (!execute(usersTable) || 
@@ -125,5 +122,8 @@ if (!execute(usersTable) ||
     !execute(attendanceTable) ) {
     return false;
 }
+UserDAO userDAO(db);
+userDAO.createUser("admin", "admin123");
+
 return true;
 }
