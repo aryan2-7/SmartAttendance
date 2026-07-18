@@ -16,8 +16,10 @@ private:
     void transform() {
         unsigned int w[64];
         for (int i = 0; i < 16; ++i) {
-            w[i] = (buffer[i * 4] << 24) | (buffer[i * 4 + 1] << 16) | 
-                   (buffer[i * 4 + 2] << 8) | buffer[i * 4 + 3];
+            w[i] = (static_cast<unsigned int>(buffer[i * 4]) << 24) | 
+                (static_cast<unsigned int>(buffer[i * 4 + 1]) << 16) | 
+                 (static_cast<unsigned int>(buffer[i * 4 + 2]) << 8) | 
+                static_cast<unsigned int>(buffer[i * 4 + 3]);
         }
         for (int i = 16; i < 64; ++i) {
             unsigned int s0 = rotateRight(w[i - 15], 7) ^ rotateRight(w[i - 15], 18) ^ (w[i - 15] >> 3);

@@ -120,9 +120,11 @@ std::vector<AttendanceRecord> AttendanceDAO::getAllRecords() {
         "SELECT attendanceId, attendanceStudentId, attendanceSessionId, attendanceDate, attendanceTime, attendanceStatus FROM attendance "
         "ORDER BY attendanceDate DESC, attendanceTime DESC;";
         
-    sqlite3_stmt* stmt;
-    sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-    
+    sqlite3_stmt* stmt=nullptr;
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+    return records; 
+    }
+
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         AttendanceRecord r;
         r.attendanceId        = sqlite3_column_int(stmt, 0);

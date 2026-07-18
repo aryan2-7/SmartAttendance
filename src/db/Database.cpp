@@ -10,6 +10,7 @@ Database::Database(const std::string& dbPath) : db(nullptr) {
     int rc=sqlite3_open(dbPath.c_str(), &db);
     if (rc != SQLITE_OK) {
         std::cerr << "Cannot open database: " << sqlite3_errmsg(db) << "\n";
+        sqlite3_close(db);
         db = nullptr;
     } else {
         // Enforce foreign key constraints for table relationships

@@ -14,10 +14,10 @@ UserDAO::UserDAO(sqlite3* databaseConnection) : db(databaseConnection) {}
 std::string UserDAO::generateSalt() {
     const char charset[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     std::string salt = "";
-    std::random_device rd;
-    std::mt19937 generator(rd());
+    
+    static std::random_device rd;
+    static std::mt19937 generator(rd());
     std::uniform_int_distribution<> distribution(0, sizeof(charset) - 2);
-
 
     for (int i = 0; i < 16; ++i) {
         salt += charset[distribution(generator)];
