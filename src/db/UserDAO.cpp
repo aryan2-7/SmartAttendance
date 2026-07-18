@@ -3,7 +3,7 @@
 #include <iomanip>
 #include <sstream>
 #include <random>
-#include "SHA256.h"
+#include "Sha256.h"
 
 
 // Constructor
