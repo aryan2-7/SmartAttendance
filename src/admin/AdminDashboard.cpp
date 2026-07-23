@@ -22,6 +22,7 @@
 #include <fstream>
 #include <algorithm>
 
+
 AdminDashboard::AdminDashboard(QWidget *parent)
     : QWidget(parent)
 {
