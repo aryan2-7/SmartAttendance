@@ -99,8 +99,12 @@ set(SOURCES
     # Module 5 – CSV Export
     #src/export/CsvExporter.cpp
 
-    # Shared – Database layer
-    src/db/db.cpp
+    # Shared – Database layer (new DAO architecture)
+    src/db/Database.cpp
+    src/db/StudentDAO.cpp
+    src/db/SubjectDAO.cpp
+    src/db/AttendanceDAO.cpp
+    src/db/UserDAO.cpp
 
     # Module 6 – Administrator / Dashboard
     src/admin/AdministratorWindow.cpp
@@ -123,6 +127,12 @@ add_executable(SmartAttendance
     src/admin/ManageStudentsWindow.h
     src/admin/AttendanceRecordsWindow.h
     src/admin/CircularProgress.h
+    src/db/Database.h
+    src/db/StudentDAO.h
+    src/db/SubjectDAO.h
+    src/db/AttendanceDAO.h
+    src/db/UserDAO.h
+    src/db/sha256.h
     src/theme/Theme.h
     fonts.qrc
 )
