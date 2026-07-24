@@ -28,7 +28,15 @@ public:
 
     bool createSubject(const std::string& subjectCode, const std::string& subjectName, int subjectSemester, const std::string& subjectDepartment, int subjectMinAttendance = 80);
     std::vector<SubjectRecord> getAllSubjects();
+    SubjectRecord getSubjectById(int subjectId);
+    SubjectRecord getSubjectByCode(const std::string& subjectCode);
+    bool updateSubject(int subjectId, const std::string& subjectCode, const std::string& subjectName, int subjectSemester, const std::string& subjectDepartment, int subjectMinAttendance);
+    bool deleteSubject(int subjectId);
+
     bool createClassSession(int sessionSubjectId, const std::string& sessionDate, const std::string& sessionStartTime, const std::string& sessionEndTime, const std::string& sessionRoom = "", const std::string& sessionTopic = "");
+    std::vector<ClassSessionRecord> getSessionsForSubject(int subjectId);
+    bool updateClassSession(int sessionId, const std::string& sessionDate, const std::string& sessionStartTime, const std::string& sessionEndTime, const std::string& sessionRoom, const std::string& sessionTopic);
+    bool deleteClassSession(int sessionId);
 
 private:
     sqlite3* db;
