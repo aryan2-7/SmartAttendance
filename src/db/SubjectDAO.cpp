@@ -62,7 +62,42 @@ bool SubjectDAO::createClassSession(int sessionSubjectId, const std::string& ses
     sqlite3_bind_text(stmt, 4, sessionEndTime.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 5, sessionRoom.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 6, sessionTopic.c_str(), -1, SQLITE_TRANSIENT);
-   
+    
+    bool ok = (sqlite3_step(stmt) == SQLITE_DONE);
+    sqlite3_finalize(stmt);
+    return ok;
+}
+
+std::vector<ClassSessionRecord> SubjectDAO::getSessionsForSubject(int subjectId) {
+    std::vector<ClassSessionRecord> sessionList;
+    const char* sql = "SELECT sessionId, sessionSubjectId, sessionDate, sessionStartTime, sessionEndTime, sessionRoom, sessionTopic FROM class_sessions WHERE sessionSubjectId = ? ORDER BY sessionDate, sessionStartTime;";
+    sqlite3_stmt* stmt = nullptr;
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, subjectId);
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            ClassSessionRecord record;
+            record.sessionId = sqlite3_column_int(stmt, 0);
+            record.sessionSubjectId = sqlite3_column_int(stmt, 1);
+            record.sessionDate = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+            record.sessionStartTime = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+            record.sessionEndTime = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+            record.sessionRoom = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+            record.sessionTopic = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
+            sessionList.push_back(record);
+        }
+    }
+    sqlite3_finalize(stmt);
+    return sessionList;
+}
+
+bool SubjectDAO::deleteClassSession(int sessionId) {
+    const char* sql = "DELETE FROM class_sessions WHERE sessionId = ?;";
+    sqlite3_stmt* stmt = nullptr;
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    sqlite3_bind_int(stmt, 1, sessionId);
+
     bool ok = (sqlite3_step(stmt) == SQLITE_DONE);
     sqlite3_finalize(stmt);
     return ok;
