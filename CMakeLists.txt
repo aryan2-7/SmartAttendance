@@ -112,6 +112,7 @@ set(SOURCES
     src/admin/ManageStudentsWindow.cpp
     src/admin/AttendanceRecordsWindow.cpp
     src/admin/CircularProgress.cpp
+    src/admin/ScheduleEditor.cpp
     src/admin/SubjectManagementWindow.cpp
 
     ${SQLITE_SOURCES}
@@ -128,6 +129,7 @@ add_executable(SmartAttendance
     src/admin/ManageStudentsWindow.h
     src/admin/AttendanceRecordsWindow.h
     src/admin/CircularProgress.h
+    src/admin/ScheduleEditor.h
     src/admin/SubjectManagementWindow.h
     src/db/Database.h
     src/db/StudentDAO.h
