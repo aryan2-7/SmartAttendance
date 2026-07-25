@@ -6,6 +6,8 @@
 #include "AttendanceRecordsWindow.h"
 #include "AdministratorWindow.h"
 #include "../db/db.h"
+#include "SubjectManagementWindow.h"
+#include "ScheduleEditor.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -667,7 +669,241 @@ QPushButton:hover{
     exportLayout->addWidget(exportButton);
     bottomRow->addWidget(exportCard);
 
-    mainLayout->addLayout(bottomRow);
 
+    // =========================================================
+    // Manage Subjects Card
+    // =========================================================
+
+    QFrame *subjectCard = new QFrame();
+    subjectCard->setObjectName("subjectCard");
+    subjectCard->setMinimumSize(95,95);
+
+    subjectCard->setStyleSheet(QString(R"(
+#subjectCard{
+    background:%1;
+    border:1px solid %2;
+    border-radius:18px;
+}
+)")
+                                   .arg(Theme::Surface)
+                                   .arg(Theme::Border));
+
+    auto *subjectShadow = new QGraphicsDropShadowEffect;
+    subjectShadow->setBlurRadius(20);
+    subjectShadow->setOffset(0,4);
+    subjectShadow->setColor(QColor(0,0,0,120));
+    subjectCard->setGraphicsEffect(subjectShadow);
+
+    QVBoxLayout *subjectLayout = new QVBoxLayout(subjectCard);
+    subjectLayout->setContentsMargins(10,10,10,10);
+    subjectLayout->setSpacing(8);
+
+
+    // Icon
+    QLabel *subjectIcon = new QLabel();
+    subjectIcon->setFixedSize(36,36);
+    subjectIcon->setAlignment(Qt::AlignCenter);
+
+    subjectIcon->setStyleSheet(QString(R"(
+QLabel{
+    background:%1;
+    border-radius:18px;
+    font-size:18px;
+}
+)")
+                                   .arg(Theme::Gold));
+
+
+    // Title
+    QLabel *subjectTitle = new QLabel("Manage Subjects");
+    subjectTitle->setAlignment(Qt::AlignCenter);
+    subjectTitle->setFont(FontManager::headingFont(16));
+
+    subjectTitle->setStyleSheet(
+        QString("color:%1;").arg(Theme::Primary));
+
+
+    // Description
+    QLabel *subjectDesc = new QLabel(
+        "Add, edit and manage subjects."
+        );
+
+    subjectDesc->setAlignment(Qt::AlignCenter);
+    subjectDesc->setWordWrap(true);
+
+    subjectDesc->setStyleSheet(
+        QString("color:%1; font-size:16px;")
+            .arg(Theme::Secondary));
+
+
+    // Open Button
+    QPushButton *subjectButton = new QPushButton("Open");
+    subjectButton->setMinimumHeight(20);
+
+    subjectButton->setStyleSheet(QString(R"(
+QPushButton{
+    background:%1;
+    color:%2;
+    border:none;
+    border-radius:10px;
+    font-weight:bold;
+}
+QPushButton:hover{
+    background:%3;
+}
+)")
+                                     .arg(Theme::Gold)
+                                     .arg(Theme::Card)
+                                     .arg(Theme::Warning));
+
+
+    // Open Subject Management Window
+    connect(subjectButton, &QPushButton::clicked, this, [this]() {
+
+        auto *window = new SubjectManagementWindow();
+
+        window->show();
+
+        this->close();
+    });
+
+
+    // Add widgets to card
+    subjectLayout->addWidget(subjectIcon);
+    subjectLayout->addWidget(subjectTitle);
+    subjectLayout->addWidget(subjectDesc);
+    subjectLayout->addStretch();
+    subjectLayout->addWidget(subjectButton);
+
+
+    // Add card to bottom row
+    bottomRow->addWidget(subjectCard);
+    // Schedule Editor Card
+    QFrame *scheduleCard = new QFrame();
+    scheduleCard->setObjectName("scheduleCard");
+    scheduleCard->setMinimumSize(95, 95);
+
+    scheduleCard->setStyleSheet(QString(R"(
+#scheduleCard{
+    background:%1;
+    border:1px solid %2;
+    border-radius:18px;
+}
+)")
+                                    .arg(Theme::Surface)
+                                    .arg(Theme::Border));
+
+    auto *scheduleShadow = new QGraphicsDropShadowEffect;
+    scheduleShadow->setBlurRadius(20);
+    scheduleShadow->setOffset(0,4);
+    scheduleShadow->setColor(QColor(0,0,0,120));
+
+    scheduleCard->setGraphicsEffect(scheduleShadow);
+
+
+    // Schedule Card Layout
+    QVBoxLayout *scheduleLayout =
+        new QVBoxLayout(scheduleCard);
+
+    scheduleLayout->setContentsMargins(10,10,10,10);
+    scheduleLayout->setSpacing(8);
+
+
+    // Icon
+    QLabel *scheduleIcon = new QLabel();
+
+    scheduleIcon->setFixedSize(36,36);
+    scheduleIcon->setAlignment(Qt::AlignCenter);
+
+    scheduleIcon->setStyleSheet(QString(R"(
+QLabel{
+    background:%1;
+    border-radius:18px;
+    font-size:18px;
+}
+)")
+                                    .arg(Theme::Warning));
+
+
+    // Title
+    QLabel *scheduleTitle =
+        new QLabel("Schedule Editor");
+
+    scheduleTitle->setAlignment(Qt::AlignCenter);
+
+    scheduleTitle->setFont(
+        FontManager::headingFont(16)
+        );
+
+    scheduleTitle->setStyleSheet(
+        QString("color:%1;")
+            .arg(Theme::Primary)
+        );
+
+
+    // Description
+    QLabel *scheduleDesc =
+        new QLabel(
+            "Create and manage weekly class schedules."
+            );
+
+    scheduleDesc->setAlignment(Qt::AlignCenter);
+    scheduleDesc->setWordWrap(true);
+
+    scheduleDesc->setStyleSheet(
+        QString("color:%1; font-size:16px;")
+            .arg(Theme::Secondary)
+        );
+
+
+    // Open Button
+    QPushButton *scheduleButton =
+        new QPushButton("Open");
+
+    scheduleButton->setMinimumHeight(20);
+
+    scheduleButton->setStyleSheet(QString(R"(
+QPushButton{
+    background:%1;
+    color:%2;
+    border:none;
+    border-radius:10px;
+    font-weight:bold;
+}
+QPushButton:hover{
+    background:%3;
+}
+)")
+                                      .arg(Theme::Gold)
+                                      .arg(Theme::Card)
+                                      .arg(Theme::Warning));
+
+
+    connect(scheduleButton, &QPushButton::clicked, this, [this]() {
+
+        auto *window = new ScheduleEditor();
+        window->show();
+
+        this->close();
+
+    });
+
+
+    // Add Widgets
+    scheduleLayout->addWidget(scheduleIcon);
+    scheduleLayout->addWidget(scheduleTitle);
+    scheduleLayout->addWidget(scheduleDesc);
+
+    scheduleLayout->addStretch();
+
+    scheduleLayout->addWidget(scheduleButton);
+
+
+    // Add Card to Bottom Row
+    bottomRow->addWidget(scheduleCard);
+
+
+    // Add bottom row to main layout
+    mainLayout->addLayout(bottomRow);
     setLayout(mainLayout);
 }

@@ -61,14 +61,23 @@ else()
     check_lib_abi_matches("Qt5" "${Qt5_DIR}")
 endif()
 
-find_package(OpenCV REQUIRED COMPONENTS
-    core imgproc objdetect videoio highgui dnn
+# ---- OpenCV ----
+set(OpenCV_INCLUDE_DIRS "C:/opencv-install/include")
+set(OpenCV_LIB_DIR "C:/opencv-install/x64/vc18/lib")
+
+set(OpenCV_LIBS
+    "${OpenCV_LIB_DIR}/opencv_core4130.lib"
+    "${OpenCV_LIB_DIR}/opencv_imgproc4130.lib"
+    "${OpenCV_LIB_DIR}/opencv_objdetect4130.lib"
+    "${OpenCV_LIB_DIR}/opencv_videoio4130.lib"
+    "${OpenCV_LIB_DIR}/opencv_highgui4130.lib"
+    "${OpenCV_LIB_DIR}/opencv_dnn4130.lib"
 )
-check_lib_abi_matches("OpenCV" "${OpenCV_DIR}")
-if (WIN32 AND WIN_COMPILER_ABI STREQUAL "msvc" AND NOT DEFINED OpenCV_DIR)
-    message(WARNING "OpenCV_DIR not set — cannot verify OpenCV was built for MSVC. "
-                     "If linking fails, point OpenCV_DIR at the vc16/vc17 build folder explicitly.")
-endif()
+
+message(STATUS "Using manual OpenCV configuration")
+message(STATUS "OpenCV include directory: ${OpenCV_INCLUDE_DIRS}")
+message(STATUS "OpenCV library directory: ${OpenCV_LIB_DIR}")
+message(STATUS "OpenCV libraries: ${OpenCV_LIBS}")
 
 if (EXISTS "${CMAKE_SOURCE_DIR}/sqlite/sqlite3.c")
     message(STATUS "Using bundled SQLite from sqlite")
@@ -108,6 +117,10 @@ set(SOURCES
     src/admin/ManageStudentsWindow.cpp
     src/admin/AttendanceRecordsWindow.cpp
     src/admin/CircularProgress.cpp
+    src/admin/SubjectManagementWindow.cpp
+    src/admin/ScheduleEditor.cpp
+
+
 
     ${SQLITE_SOURCES}
 )
@@ -125,6 +138,9 @@ add_executable(SmartAttendance
     src/admin/CircularProgress.h
     src/theme/Theme.h
     fonts.qrc
+    src/admin/SubjectManagementWindow.h
+    src/admin/ScheduleEditor.h
+    src/admin/ScheduleEditor.cpp
 )
 
 target_include_directories(SmartAttendance PRIVATE
