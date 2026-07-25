@@ -11,7 +11,8 @@
 #include <map>
 #include <chrono>
 
-struct StudentRecord {
+struct GalleryStudent {
+    int         studentId;
     std::string name;
     std::string roll;
     cv::Mat     gallery;
@@ -32,7 +33,7 @@ private:
     bool loadGallery();
     bool detectBestFace(const cv::Mat &frame, cv::Mat &faceBox);
     int  matchFace(const cv::Mat &feat);
-    void logAttendance(const StudentRecord &s);
+    void logAttendance(const GalleryStudent &s);
 
     QLabel *cameraIcon;
     QLabel *statusLabel;
@@ -42,8 +43,8 @@ private:
     cv::Ptr<cv::FaceDetectorYN>   detector_;
     cv::Ptr<cv::FaceRecognizerSF> recognizer_;
 
-    std::vector<StudentRecord> students_;
-    std::map<std::string, std::chrono::steady_clock::time_point> lastLogged_;
+    std::vector<GalleryStudent> students_;
+    std::map<int, std::chrono::steady_clock::time_point> lastLogged_;
     static constexpr double COSINE_THRESHOLD = 0.363;
     static constexpr int    COOLDOWN_SECONDS = 300;
 };

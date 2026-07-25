@@ -2,7 +2,10 @@
 #include "../auth/FontManager.h"
 #include "../auth/WelcomeWindow.h"
 #include "../theme/Theme.h"
-#include "../db/db.h"
+#include "../db/Database.h"
+#include "../db/StudentDAO.h"
+#include "../db/AttendanceDAO.h"
+#include "../db/SubjectDAO.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -14,6 +17,7 @@
 #include <QImage>
 #include <opencv2/imgproc.hpp>
 #include <fstream>
+#include <ctime>
 
 static QPixmap matToPixmap(const cv::Mat &frame) {
     cv::Mat rgb;
@@ -65,7 +69,7 @@ void AttendanceWindow::setupUI() {
     mainLayout->setAlignment(Qt::AlignTop);
 
     QHBoxLayout *headerLayout = new QHBoxLayout();
-    QPushButton *backButton = new QPushButton("← Back");
+    QPushButton *backButton = new QPushButton("Back");
     connect(backButton, &QPushButton::clicked, this, [this]() {
         if (cap_.isOpened()) cap_.release();
         auto *window = new WelcomeWindow();
@@ -104,7 +108,7 @@ void AttendanceWindow::setupUI() {
     QVBoxLayout *cameraLayout = new QVBoxLayout(cameraFrame);
     cameraLayout->setAlignment(Qt::AlignCenter);
 
-    cameraIcon = new QLabel("👤");
+    cameraIcon = new QLabel;
     cameraIcon->setAlignment(Qt::AlignCenter);
     cameraIcon->setFixedSize(640, 360);
     cameraLayout->addWidget(cameraIcon, 0, Qt::AlignCenter);
@@ -122,14 +126,15 @@ void AttendanceWindow::setupUI() {
 }
 
 bool AttendanceWindow::loadGallery() {
-    Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
-    db.initializeTables();
-    std::vector<StudentRecordDB> dbStudents = db.getAllStudents();
+    Database dbConn(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+    dbConn.initializeTables();
+    StudentDAO studentDAO(dbConn.getConnection());
+    std::vector<StudentRecord> dbStudents = studentDAO.getAllStudents();
 
-    for (const StudentRecordDB &record : dbStudents) {
-        if (record.modelPath.empty()) continue;
+    for (const StudentRecord &record : dbStudents) {
+        if (record.studentModelPath.empty()) continue;
 
-        std::ifstream ifs(record.modelPath, std::ios::binary);
+        std::ifstream ifs(record.studentModelPath, std::ios::binary);
         if (!ifs) continue;
 
         int rows = 0, cols = 0;
@@ -143,8 +148,9 @@ bool AttendanceWindow::loadGallery() {
         if (!ifs) continue;
 
         students_.push_back({
-            record.name,
-            std::to_string(record.rollNumber),
+            record.studentId,
+            record.studentName,
+            std::to_string(record.studentRollNumber),
             gallery.clone()
         });
     }
@@ -172,22 +178,20 @@ void AttendanceWindow::onFrameTimer() {
         int matchIdx = matchFace(feat);
         if (matchIdx >= 0) {
             auto &s = students_[matchIdx];
+
             auto now = std::chrono::steady_clock::now();
-            bool canLog = true;
-            if (lastLogged_.count(s.roll)) {
+            if (lastLogged_.count(s.studentId)) {
                 auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
-                    now - lastLogged_[s.roll]).count();
-                if (elapsed < COOLDOWN_SECONDS) canLog = false;
+                    now - lastLogged_[s.studentId]).count();
+                if (elapsed < COOLDOWN_SECONDS) {
+                    statusLabel->setText(
+                        QString::fromStdString(s.name + " - already logged recently."));
+                    goto display_frame;
+                }
             }
-            if (canLog) {
-                logAttendance(s);
-                lastLogged_[s.roll] = now;
-                statusLabel->setText(
-                    QString::fromStdString(s.name + " - Attendance Marked!"));
-            } else {
-                statusLabel->setText(
-                    QString::fromStdString(s.name + " - already logged recently."));
-            }
+
+            logAttendance(s);
+            lastLogged_[s.studentId] = now;
         } else {
             statusLabel->setText("Unknown Face");
         }
@@ -195,6 +199,7 @@ void AttendanceWindow::onFrameTimer() {
         statusLabel->setText("No face detected.");
     }
 
+display_frame:
     cv::Mat displayFrame;
     cv::resize(frame, displayFrame, cv::Size(640, 360));
     cameraIcon->setPixmap(matToPixmap(displayFrame));
@@ -229,8 +234,55 @@ int AttendanceWindow::matchFace(const cv::Mat &feat) {
     return bestIdx;
 }
 
-void AttendanceWindow::logAttendance(const StudentRecord &s) {
-    Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
-    db.initializeTables();
-    db.markAttendance(std::stoi(s.roll), s.name);
+void AttendanceWindow::logAttendance(const GalleryStudent &s) {
+    Database dbConn(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+    dbConn.initializeTables();
+    AttendanceDAO attendanceDAO(dbConn.getConnection());
+
+    int sessionId = attendanceDAO.findCurrentSession();
+    if (sessionId < 0) {
+        statusLabel->setText(
+            QString::fromStdString(s.name + " - No class scheduled right now."));
+        return;
+    }
+
+    SubjectDAO subjectDAO(dbConn.getConnection());
+    std::vector<SubjectRecord> allSubjects = subjectDAO.getAllSubjects();
+
+    const char* sessionSql = "SELECT sessionSubjectId FROM class_sessions WHERE sessionId = ?;";
+    sqlite3_stmt* stmt = nullptr;
+    sqlite3* rawDb = dbConn.getConnection();
+    int subjectId = -1;
+
+    if (sqlite3_prepare_v2(rawDb, sessionSql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, sessionId);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            subjectId = sqlite3_column_int(stmt, 0);
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    if (subjectId < 0) {
+        statusLabel->setText(
+            QString::fromStdString(s.name + " - Error: session has no subject."));
+        return;
+    }
+
+    if (!attendanceDAO.isEnrolled(s.studentId, subjectId)) {
+        statusLabel->setText(
+            QString::fromStdString(s.name + " - Not enrolled in this subject."));
+        return;
+    }
+
+    time_t now = time(nullptr);
+    char timeBuf[9];
+    strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", localtime(&now));
+
+    if (attendanceDAO.markAttendance(s.studentId, sessionId, timeBuf, "present")) {
+        statusLabel->setText(
+            QString::fromStdString(s.name + " - Attendance Marked!"));
+    } else {
+        statusLabel->setText(
+            QString::fromStdString(s.name + " - Already marked for this session."));
+    }
 }
