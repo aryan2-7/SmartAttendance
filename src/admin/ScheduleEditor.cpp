@@ -1,13 +1,25 @@
 #include "ScheduleEditor.h"
-#include "../db/SubjectDAO.h"
 #include "../theme/Theme.h"
+#include "../auth/FontManager.h"
+#include "AdminDashboard.h"
+#include "../db/SubjectDAO.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
+#include <QLabel>
+#include <QPushButton>
+#include <QComboBox>
+#include <QDateEdit>
+#include <QTimeEdit>
+#include <QLineEdit>
+#include <QSpinBox>
 #include <QGroupBox>
+#include <QTableWidget>
 #include <QHeaderView>
 #include <QMessageBox>
+#include <QFrame>
+#include <QAbstractItemView>
 #include <QDate>
 
 static const int SECONDS_IN_DAY = 86400;
@@ -16,7 +28,9 @@ ScheduleEditor::ScheduleEditor(QWidget *parent)
     : QWidget(parent), dbConn("") {
     dbConn = Database(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
     dbConn.initializeTables();
+
     setupUI();
+    setupStyles();
 
     SubjectDAO subjectDAO(dbConn.getConnection());
     std::vector<SubjectRecord> subjects = subjectDAO.getAllSubjects();
@@ -27,103 +41,127 @@ ScheduleEditor::ScheduleEditor(QWidget *parent)
     }
 }
 
+// =====================================
+// Setup UI
+// =====================================
+
 void ScheduleEditor::setupUI() {
-    setStyleSheet(QString("QWidget{ background:%1; color:%2; }")
-                      .arg(Theme::Card).arg(Theme::Primary));
+    setWindowTitle("Schedule Editor");
+    resize(1200, 750);
+
+    // =========================
+    // Main Layout
+    // =========================
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(24, 24, 24, 24);
-    mainLayout->setSpacing(16);
+    mainLayout->setContentsMargins(40, 30, 40, 30);
+    mainLayout->setSpacing(20);
 
-    QLabel *title = new QLabel("Schedule Editor");
-    QFont titleFont;
-    titleFont.setPointSize(18);
-    titleFont.setBold(true);
-    title->setFont(titleFont);
-    title->setStyleSheet(QString("color:%1; padding-bottom:8px;").arg(Theme::Gold));
-    mainLayout->addWidget(title);
+    // =========================
+    // Header
+    // =========================
+
+    QHBoxLayout *headerLayout = new QHBoxLayout();
+
+    backButton = new QPushButton("← Back");
+    backButton->setFixedSize(100, 42);
+
+    QLabel *titleLabel = new QLabel("SCHEDULE EDITOR");
+    titleLabel->setAlignment(Qt::AlignCenter);
+    titleLabel->setFont(FontManager::headingFont(22));
+
+    headerLayout->addWidget(backButton);
+    headerLayout->addStretch();
+    headerLayout->addWidget(titleLabel);
+    headerLayout->addStretch();
+
+    mainLayout->addLayout(headerLayout);
+
+    // =========================
+    // Subject Selection
+    // =========================
+
+    QHBoxLayout *subjectLayout = new QHBoxLayout();
+
+    QLabel *subjectLabel = new QLabel("Subject:");
 
     subjectCombo = new QComboBox();
-    subjectCombo->setStyleSheet(QString(
-        "QComboBox{ background:%1; color:%2; border:1px solid %3; border-radius:6px; padding:6px; }")
-        .arg(Theme::Input).arg(Theme::Primary).arg(Theme::Border));
-    mainLayout->addWidget(subjectCombo);
+
     connect(subjectCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ScheduleEditor::onSubjectSelected);
 
+    subjectLayout->addWidget(subjectLabel);
+    subjectLayout->addWidget(subjectCombo);
+    subjectLayout->addStretch();
+
+    mainLayout->addLayout(subjectLayout);
+
+    // =========================
+    // Add Session Card
+    // =========================
+
     QGroupBox *sessionGroup = new QGroupBox("Add Session");
-    sessionGroup->setStyleSheet(QString(
-        "QGroupBox{ background:%1; border:1px solid %2; border-radius:8px; "
-        "margin-top:16px; padding-top:20px; font-weight:bold; color:%3; }"
-        "QGroupBox::title{ subcontrol-origin:margin; left:12px; padding:0 4px; }")
-        .arg(Theme::Surface).arg(Theme::Border).arg(Theme::Primary));
+    sessionGroup->setObjectName("sessionGroup");
 
     QFormLayout *formLayout = new QFormLayout(sessionGroup);
-    formLayout->setSpacing(10);
-    formLayout->setContentsMargins(16, 24, 16, 16);
-
-    QString fieldStyle = QString(
-        "QDateEdit,QTimeEdit,QLineEdit,QSpinBox{ background:%1; color:%2; "
-        "border:1px solid %3; border-radius:6px; padding:6px; }")
-        .arg(Theme::Input).arg(Theme::Primary).arg(Theme::Border);
+    formLayout->setContentsMargins(25, 25, 25, 25);
+    formLayout->setSpacing(15);
 
     dateEdit = new QDateEdit(QDate::currentDate());
     dateEdit->setCalendarPopup(true);
     dateEdit->setDisplayFormat("yyyy-MM-dd");
-    dateEdit->setStyleSheet(fieldStyle);
     formLayout->addRow("Date:", dateEdit);
 
     startTimeEdit = new QTimeEdit(QTime(8, 0));
     startTimeEdit->setDisplayFormat("HH:mm");
-    startTimeEdit->setStyleSheet(fieldStyle);
     formLayout->addRow("Start Time:", startTimeEdit);
 
     endTimeEdit = new QTimeEdit(QTime(9, 0));
     endTimeEdit->setDisplayFormat("HH:mm");
-    endTimeEdit->setStyleSheet(fieldStyle);
     formLayout->addRow("End Time:", endTimeEdit);
 
     roomEdit = new QLineEdit();
     roomEdit->setPlaceholderText("e.g. Lab 3, Room 201");
-    roomEdit->setStyleSheet(fieldStyle);
     formLayout->addRow("Room:", roomEdit);
 
     topicEdit = new QLineEdit();
     topicEdit->setPlaceholderText("e.g. Chapter 5: Vectors");
-    topicEdit->setStyleSheet(fieldStyle);
     formLayout->addRow("Topic:", topicEdit);
 
     mainLayout->addWidget(sessionGroup);
 
+    // =========================
+    // Weekly Generation Card
+    // =========================
+
     QGroupBox *weeklyGroup = new QGroupBox("Add Weekly (Generate N Weeks)");
-    weeklyGroup->setStyleSheet(sessionGroup->styleSheet());
+    weeklyGroup->setObjectName("sessionGroup");
 
     QHBoxLayout *weeklyLayout = new QHBoxLayout(weeklyGroup);
-    weeklyLayout->setContentsMargins(16, 24, 16, 16);
+    weeklyLayout->setContentsMargins(25, 25, 25, 25);
     weeklyLayout->setSpacing(12);
 
     QLabel *weeksLabel = new QLabel("Weeks:");
-    weeksLabel->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
 
     weeksSpin = new QSpinBox();
     weeksSpin->setRange(1, 16);
     weeksSpin->setValue(8);
-    weeksSpin->setStyleSheet(fieldStyle);
 
     addWeeklyBtn = new QPushButton("Generate Weekly Sessions");
-    addWeeklyBtn->setStyleSheet(QString(
-        "QPushButton{ background:%1; color:%2; border:1px solid %3; "
-        "border-radius:8px; padding:10px 20px; font-weight:bold; }"
-        "QPushButton:hover{ background:%4; }")
-        .arg(Theme::Surface).arg(Theme::Primary).arg(Theme::Border).arg(Theme::Hover));
+    addWeeklyBtn->setFixedHeight(42);
 
     weeklyLayout->addWidget(weeksLabel);
     weeklyLayout->addWidget(weeksSpin);
     weeklyLayout->addWidget(addWeeklyBtn);
     weeklyLayout->addStretch();
+
     mainLayout->addWidget(weeklyGroup);
 
     connect(addWeeklyBtn, &QPushButton::clicked, this, &ScheduleEditor::onAddWeeklyClicked);
+
+    // =========================
+    // Action Buttons
+    // =========================
 
     QHBoxLayout *actionLayout = new QHBoxLayout();
     actionLayout->setSpacing(12);
@@ -131,47 +169,167 @@ void ScheduleEditor::setupUI() {
     addSessionBtn = new QPushButton("Add Single Session");
     deleteBtn = new QPushButton("Delete Selected Session");
 
-    QString btnStyle = QString(
-        "QPushButton{ background:%1; color:%2; border:1px solid %3; "
-        "border-radius:8px; padding:10px 20px; font-weight:bold; }"
-        "QPushButton:hover{ background:%4; }")
-        .arg(Theme::Surface).arg(Theme::Primary).arg(Theme::Border).arg(Theme::Hover);
-
-    addSessionBtn->setStyleSheet(btnStyle);
-    deleteBtn->setStyleSheet(btnStyle);
+    addSessionBtn->setFixedHeight(42);
+    deleteBtn->setFixedHeight(42);
 
     actionLayout->addWidget(addSessionBtn);
     actionLayout->addWidget(deleteBtn);
     actionLayout->addStretch();
+
     mainLayout->addLayout(actionLayout);
 
     connect(addSessionBtn, &QPushButton::clicked, this, &ScheduleEditor::onAddSessionClicked);
     connect(deleteBtn, &QPushButton::clicked, this, &ScheduleEditor::onDeleteSessionClicked);
 
+    // =========================
+    // Status Label
+    // =========================
+
     statusLabel = new QLabel();
-    statusLabel->setStyleSheet(QString("QLabel{ color:%1; padding:4px; }").arg(Theme::Success));
     mainLayout->addWidget(statusLabel);
+
+    // =========================
+    // Session Table
+    // =========================
+
+    QLabel *sessionTitle = new QLabel("Scheduled Sessions");
+    sessionTitle->setFont(FontManager::headingFont(18));
+    mainLayout->addWidget(sessionTitle);
 
     sessionTable = new QTableWidget();
     sessionTable->setColumnCount(6);
     sessionTable->setHorizontalHeaderLabels(
         {"ID", "Date", "Start", "End", "Room", "Topic"});
+
     sessionTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     sessionTable->setSelectionMode(QAbstractItemView::SingleSelection);
     sessionTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    sessionTable->verticalHeader()->setVisible(false);
     sessionTable->horizontalHeader()->setStretchLastSection(true);
     sessionTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    sessionTable->verticalHeader()->hide();
-    sessionTable->setStyleSheet(QString(
-        "QTableWidget{ background:%1; color:%2; border:1px solid %3; "
-        "border-radius:6px; gridline-color:%4; }"
-        "QTableWidget::item{ padding:6px; }"
-        "QHeaderView::section{ background:%5; color:%2; border:1px solid %3; padding:6px; font-weight:bold; }")
-        .arg(Theme::Input).arg(Theme::Primary).arg(Theme::Border)
-        .arg(Theme::Border).arg(Theme::Surface));
 
     mainLayout->addWidget(sessionTable);
+
+    // =========================
+    // Connections
+    // =========================
+
+    connect(backButton, &QPushButton::clicked, this, [this]() {
+        auto *window = new AdminDashboard();
+        window->show();
+        this->close();
+    });
 }
+
+// =====================================
+// Styling
+// =====================================
+
+void ScheduleEditor::setupStyles() {
+    setStyleSheet(QString(R"(
+        QWidget {
+            background:%1;
+            color:%2;
+            font-family:"Segoe UI";
+        }
+
+        QLabel {
+            color:%2;
+        }
+
+        QGroupBox#sessionGroup {
+            background:%3;
+            border:1px solid %4;
+            border-radius:18px;
+            margin-top:12px;
+            font-weight:bold;
+            color:%2;
+        }
+
+        QGroupBox#sessionGroup::title {
+            subcontrol-origin:margin;
+            left:16px;
+            padding:0 6px;
+            color:%6;
+        }
+
+        QLineEdit,
+        QComboBox,
+        QDateEdit,
+        QTimeEdit,
+        QSpinBox {
+            background:%5;
+            border:1px solid %4;
+            border-radius:10px;
+            padding:8px 12px;
+            color:%2;
+            min-height:20px;
+        }
+
+        QLineEdit:focus,
+        QComboBox:focus,
+        QDateEdit:focus,
+        QTimeEdit:focus,
+        QSpinBox:focus {
+            border:1px solid %6;
+        }
+
+        QPushButton {
+            background:%3;
+            color:%2;
+            border:1px solid %4;
+            border-radius:10px;
+            padding:8px 18px;
+            font-weight:bold;
+        }
+
+        QPushButton:hover {
+            background:%7;
+        }
+
+        QLabel#statusLabel,
+        QLabel {
+            color:%2;
+        }
+
+        QTableWidget {
+            background:%5;
+            border:1px solid %4;
+            border-radius:14px;
+            gridline-color:%4;
+            color:%2;
+            selection-background-color:%3;
+            selection-color:%2;
+        }
+
+        QTableWidget::item {
+            padding:10px;
+        }
+
+        QHeaderView::section {
+            background:%3;
+            color:%2;
+            padding:12px;
+            border:none;
+            border-bottom:1px solid %4;
+            font-weight:bold;
+        }
+    )")
+                      .arg(Theme::Card)
+                      .arg(Theme::Primary)
+                      .arg(Theme::Surface)
+                      .arg(Theme::Border)
+                      .arg(Theme::Input)
+                      .arg(Theme::Gold)
+                      .arg(Theme::Hover));
+
+    statusLabel->setStyleSheet(QString("QLabel{ color:%1; padding:4px; font-weight:bold; }")
+                                    .arg(Theme::Success));
+}
+
+// =====================================
+// Logic (unchanged from integration)
+// =====================================
 
 void ScheduleEditor::onSubjectSelected(int index) {
     refreshSessionList();

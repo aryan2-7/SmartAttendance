@@ -10,6 +10,7 @@ class QLabel;
 class QLineEdit;
 class QPushButton;
 
+
 class StudentRegistrationWindow : public QWidget
 {
     Q_OBJECT
@@ -32,6 +33,7 @@ private:
     QLineEdit* nameEdit;
     QLineEdit* rollEdit;
     QPushButton* registerButton;
+    QPushButton *backHomeButton;
 
     cv::VideoCapture cap_;
     QTimer *frameTimer_;

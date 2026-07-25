@@ -1,87 +1,107 @@
 #include "SubjectManagementWindow.h"
 #include "../db/SubjectDAO.h"
 #include "../theme/Theme.h"
+#include "../auth/FontManager.h"
+#include "AdminDashboard.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
-#include <QGroupBox>
+#include <QLabel>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QTableWidget>
 #include <QHeaderView>
 #include <QMessageBox>
+#include <QComboBox>
+#include <QSpinBox>
 #include <QFont>
 
 SubjectManagementWindow::SubjectManagementWindow(QWidget *parent)
     : QWidget(parent), dbConn("") {
     dbConn = Database(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
     dbConn.initializeTables();
+
     setupUI();
+    setupStyles();
     refreshTable();
 }
 
+// =====================================
+// Setup UI
+// =====================================
+
 void SubjectManagementWindow::setupUI() {
-    setStyleSheet(QString("QWidget{ background:%1; color:%2; }")
-                      .arg(Theme::Card).arg(Theme::Primary));
+    setWindowTitle("Subject Management");
+    resize(1200, 750);
+
+    // =========================
+    // Main Layout
+    // =========================
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(24, 24, 24, 24);
-    mainLayout->setSpacing(16);
+    mainLayout->setContentsMargins(40, 30, 40, 30);
+    mainLayout->setSpacing(20);
 
-    QLabel *title = new QLabel("Subject Management");
-    QFont titleFont;
-    titleFont.setPointSize(18);
-    titleFont.setBold(true);
-    title->setFont(titleFont);
-    title->setStyleSheet(QString("color:%1; padding-bottom:8px;").arg(Theme::Gold));
-    mainLayout->addWidget(title);
+    // =========================
+    // Header
+    // =========================
 
-    // Form group
+    QHBoxLayout *headerLayout = new QHBoxLayout();
+
+    backButton = new QPushButton("← Back");
+    backButton->setFixedSize(100, 42);
+
+    QLabel *titleLabel = new QLabel("SUBJECT MANAGEMENT");
+    titleLabel->setAlignment(Qt::AlignCenter);
+    titleLabel->setFont(FontManager::headingFont(22));
+
+    headerLayout->addWidget(backButton);
+    headerLayout->addStretch();
+    headerLayout->addWidget(titleLabel);
+    headerLayout->addStretch();
+
+    mainLayout->addLayout(headerLayout);
+
+    // =========================
+    // Subject Details Card
+    // =========================
+
     QGroupBox *formGroup = new QGroupBox("Subject Details");
-    formGroup->setStyleSheet(QString(
-        "QGroupBox{ background:%1; border:1px solid %2; border-radius:8px; "
-        "margin-top:16px; padding-top:20px; font-weight:bold; color:%3; }"
-        "QGroupBox::title{ subcontrol-origin:margin; left:12px; padding:0 4px; }")
-        .arg(Theme::Surface).arg(Theme::Border).arg(Theme::Primary));
+    formGroup->setObjectName("formGroup");
 
     QFormLayout *formLayout = new QFormLayout(formGroup);
-    formLayout->setSpacing(10);
-    formLayout->setContentsMargins(16, 24, 16, 16);
+    formLayout->setContentsMargins(25, 25, 25, 25);
+    formLayout->setSpacing(15);
 
     codeEdit = new QLineEdit();
     codeEdit->setPlaceholderText("e.g. ENGG102");
-    codeEdit->setStyleSheet(QString("QLineEdit{ background:%1; color:%2; border:1px solid %3; "
-                                    "border-radius:6px; padding:6px; }")
-                            .arg(Theme::Input).arg(Theme::Primary).arg(Theme::Border));
     formLayout->addRow("Subject Code:", codeEdit);
 
     nameEdit = new QLineEdit();
     nameEdit->setPlaceholderText("e.g. Engineering Mathematics");
-    nameEdit->setStyleSheet(codeEdit->styleSheet());
     formLayout->addRow("Subject Name:", nameEdit);
 
     semesterSpin = new QSpinBox();
     semesterSpin->setRange(1, 8);
-    semesterSpin->setStyleSheet(QString("QSpinBox{ background:%1; color:%2; border:1px solid %3; "
-                                        "border-radius:6px; padding:6px; }")
-                                .arg(Theme::Input).arg(Theme::Primary).arg(Theme::Border));
     formLayout->addRow("Semester:", semesterSpin);
 
     deptCombo = new QComboBox();
     deptCombo->addItems({"Computer Science", "Electrical", "Mechanical", "Civil", "Electronics", "Other"});
-    deptCombo->setStyleSheet(QString("QComboBox{ background:%1; color:%2; border:1px solid %3; "
-                                     "border-radius:6px; padding:6px; }")
-                             .arg(Theme::Input).arg(Theme::Primary).arg(Theme::Border));
     formLayout->addRow("Department:", deptCombo);
 
     minAttSpin = new QSpinBox();
     minAttSpin->setRange(0, 100);
     minAttSpin->setValue(80);
     minAttSpin->setSuffix("%");
-    minAttSpin->setStyleSheet(semesterSpin->styleSheet());
     formLayout->addRow("Min Attendance:", minAttSpin);
 
     mainLayout->addWidget(formGroup);
 
-    // Action buttons
+    // =========================
+    // Action Buttons
+    // =========================
+
     QHBoxLayout *btnLayout = new QHBoxLayout();
     btnLayout->setSpacing(12);
 
@@ -89,49 +109,61 @@ void SubjectManagementWindow::setupUI() {
     editBtn = new QPushButton("Update Subject");
     deleteBtn = new QPushButton("Delete Subject");
 
-    QString btnStyle = QString(
-        "QPushButton{ background:%1; color:%2; border:1px solid %3; "
-        "border-radius:8px; padding:10px 20px; font-weight:bold; }"
-        "QPushButton:hover{ background:%4; }")
-        .arg(Theme::Surface).arg(Theme::Primary).arg(Theme::Border).arg(Theme::Hover);
-
-    addBtn->setStyleSheet(btnStyle);
-    editBtn->setStyleSheet(btnStyle);
-    deleteBtn->setStyleSheet(btnStyle);
+    addBtn->setFixedHeight(45);
+    editBtn->setFixedHeight(45);
+    deleteBtn->setFixedHeight(45);
 
     btnLayout->addWidget(addBtn);
     btnLayout->addWidget(editBtn);
     btnLayout->addWidget(deleteBtn);
     btnLayout->addStretch();
+
     mainLayout->addLayout(btnLayout);
 
     connect(addBtn, &QPushButton::clicked, this, &SubjectManagementWindow::onAddClicked);
     connect(editBtn, &QPushButton::clicked, this, &SubjectManagementWindow::onEditClicked);
     connect(deleteBtn, &QPushButton::clicked, this, &SubjectManagementWindow::onDeleteClicked);
 
-    // Status label
+    // =========================
+    // Status Label
+    // =========================
+
     statusLabel = new QLabel();
-    statusLabel->setStyleSheet(QString("QLabel{ color:%1; padding:4px; }").arg(Theme::Success));
     mainLayout->addWidget(statusLabel);
 
-    // Table
+    // =========================
+    // Search
+    // =========================
+
+    QHBoxLayout *searchLayout = new QHBoxLayout();
+
+    searchEdit = new QLineEdit();
+    searchEdit->setPlaceholderText("Search subjects...");
+    searchEdit->setFixedHeight(45);
+
+    searchLayout->addWidget(searchEdit);
+
+    mainLayout->addLayout(searchLayout);
+
+    connect(searchEdit, &QLineEdit::textChanged,
+            this, &SubjectManagementWindow::onSearchSubject);
+
+    // =========================
+    // Subject Table
+    // =========================
+
     subjectTable = new QTableWidget();
     subjectTable->setColumnCount(6);
     subjectTable->setHorizontalHeaderLabels(
         {"ID", "Code", "Name", "Semester", "Department", "Min %"});
+
     subjectTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     subjectTable->setSelectionMode(QAbstractItemView::SingleSelection);
     subjectTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    subjectTable->setAlternatingRowColors(false);
+    subjectTable->verticalHeader()->setVisible(false);
     subjectTable->horizontalHeader()->setStretchLastSection(true);
     subjectTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    subjectTable->verticalHeader()->hide();
-    subjectTable->setStyleSheet(QString(
-        "QTableWidget{ background:%1; color:%2; border:1px solid %3; "
-        "border-radius:6px; gridline-color:%4; }"
-        "QTableWidget::item{ padding:6px; }"
-        "QHeaderView::section{ background:%5; color:%2; border:1px solid %3; padding:6px; font-weight:bold; }")
-        .arg(Theme::Input).arg(Theme::Primary).arg(Theme::Border)
-        .arg(Theme::Border).arg(Theme::Surface));
 
     mainLayout->addWidget(subjectTable);
 
@@ -142,9 +174,135 @@ void SubjectManagementWindow::setupUI() {
         nameEdit->setText(subjectTable->item(row, 2)->text());
         semesterSpin->setValue(subjectTable->item(row, 3)->text().toInt());
         deptCombo->setCurrentText(subjectTable->item(row, 4)->text());
-        minAttSpin->setValue(subjectTable->item(row, 5)->text().replace("%","").toInt());
+        minAttSpin->setValue(subjectTable->item(row, 5)->text().replace("%", "").toInt());
+    });
+
+    // =========================
+    // Connections
+    // =========================
+
+    connect(backButton, &QPushButton::clicked, this, [this]() {
+        auto *dashboard = new AdminDashboard();
+        dashboard->show();
+        this->close();
     });
 }
+
+// =====================================
+// Styling
+// =====================================
+
+void SubjectManagementWindow::setupStyles() {
+    setStyleSheet(QString(R"(
+        QWidget {
+            background:%1;
+            color:%2;
+            font-family:"Segoe UI";
+        }
+
+        QLabel {
+            color:%2;
+        }
+
+        QGroupBox#formGroup {
+            background:%3;
+            border:1px solid %4;
+            border-radius:18px;
+            margin-top:12px;
+            font-weight:bold;
+            color:%2;
+        }
+
+        QGroupBox#formGroup::title {
+            subcontrol-origin:margin;
+            left:16px;
+            padding:0 6px;
+            color:%6;
+        }
+
+        QLineEdit,
+        QComboBox,
+        QSpinBox {
+            background:%5;
+            border:1px solid %4;
+            border-radius:10px;
+            padding:8px 12px;
+            color:%2;
+            min-height:20px;
+        }
+
+        QLineEdit:focus,
+        QComboBox:focus,
+        QSpinBox:focus {
+            border:1px solid %6;
+        }
+
+        QPushButton {
+            background:%3;
+            color:%2;
+            border:1px solid %4;
+            border-radius:10px;
+            padding:8px 18px;
+            font-weight:bold;
+        }
+
+        QPushButton:hover {
+            background:%7;
+        }
+
+        QPushButton:pressed {
+            background:%4;
+        }
+
+        QTableWidget {
+            background:%5;
+            border:1px solid %4;
+            border-radius:14px;
+            gridline-color:%4;
+            color:%2;
+            selection-background-color:%3;
+            selection-color:%2;
+        }
+
+        QTableWidget::item {
+            padding:10px;
+        }
+
+        QHeaderView::section {
+            background:%3;
+            color:%2;
+            padding:12px;
+            border:none;
+            border-bottom:1px solid %4;
+            font-weight:bold;
+        }
+
+        QScrollBar:vertical {
+            background:%5;
+            width:10px;
+            border-radius:5px;
+        }
+
+        QScrollBar::handle:vertical {
+            background:%4;
+            border-radius:5px;
+        }
+    )")
+                      .arg(Theme::Card)
+                      .arg(Theme::Primary)
+                      .arg(Theme::Surface)
+                      .arg(Theme::Border)
+                      .arg(Theme::Input)
+                      .arg(Theme::Gold)
+                      .arg(Theme::Hover));
+
+    statusLabel->setStyleSheet(QString("QLabel{ color:%1; padding:4px; font-weight:bold; }")
+                                    .arg(Theme::Success));
+}
+
+// =====================================
+// Logic (unchanged from integration)
+// =====================================
 
 void SubjectManagementWindow::refreshTable() {
     SubjectDAO subjectDAO(dbConn.getConnection());
@@ -267,5 +425,28 @@ void SubjectManagementWindow::onDeleteClicked() {
         emit subjectChanged();
     } else {
         statusLabel->setText("Error: Failed to delete subject.");
+    }
+}
+
+// =====================================
+// Search (ported from dilasha, works over live DB-backed table)
+// =====================================
+
+void SubjectManagementWindow::onSearchSubject() {
+    QString searchText = searchEdit->text().trimmed();
+
+    for (int row = 0; row < subjectTable->rowCount(); ++row) {
+        bool matchFound = false;
+
+        for (int column = 0; column < subjectTable->columnCount(); ++column) {
+            QTableWidgetItem *item = subjectTable->item(row, column);
+
+            if (item && item->text().contains(searchText, Qt::CaseInsensitive)) {
+                matchFound = true;
+                break;
+            }
+        }
+
+        subjectTable->setRowHidden(row, !matchFound);
     }
 }

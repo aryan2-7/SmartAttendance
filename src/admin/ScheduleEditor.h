@@ -1,5 +1,4 @@
 #pragma once
-
 #include <QWidget>
 #include <QComboBox>
 #include <QTableWidget>
@@ -13,7 +12,6 @@
 
 class ScheduleEditor : public QWidget {
     Q_OBJECT
-
 public:
     explicit ScheduleEditor(QWidget *parent = nullptr);
 
@@ -31,10 +29,12 @@ private slots:
 
 private:
     void setupUI();
+    void setupStyles();
     void addSingleSession(int subjectId, const std::string &date,
                           const std::string &start, const std::string &end,
                           const std::string &room, const std::string &topic);
 
+    QPushButton   *backButton;
     QComboBox     *subjectCombo;
     QDateEdit     *dateEdit;
     QTimeEdit     *startTimeEdit;
@@ -47,6 +47,5 @@ private:
     QPushButton   *deleteBtn;
     QTableWidget  *sessionTable;
     QLabel        *statusLabel;
-
     Database dbConn;
 };
