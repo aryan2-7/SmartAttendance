@@ -1,38 +1,49 @@
-#ifndef SUBJECTMANAGEMENTWINDOW_H
-#define SUBJECTMANAGEMENTWINDOW_H
-
+#pragma once
 #include <QWidget>
+#include <QTableWidget>
+#include <QLineEdit>
+#include <QSpinBox>
+#include <QComboBox>
+#include <QPushButton>
+#include <QLabel>
+#include "../db/Database.h"
 
-class QTableWidget;
-class QLineEdit;
-class QPushButton;
-
-class SubjectManagementWindow : public QWidget
-{
+class SubjectManagementWindow : public QWidget {
     Q_OBJECT
-
 public:
     explicit SubjectManagementWindow(QWidget *parent = nullptr);
 
+signals:
+    void subjectChanged();
+
+public slots:
+    void refreshTable();
+
 private slots:
-    void onAddSubject();
-    void onEditSubject();
-    void onDeleteSubject();
+    void onAddClicked();
+    void onEditClicked();
+    void onDeleteClicked();
     void onSearchSubject();
 
 private:
     void setupUI();
     void setupStyles();
-    void loadSubjects();
+    void clearForm();
+    bool validateInput(const std::string &code, const std::string &name,
+                       int semester, const std::string &dept, int minAtt);
+    int getSelectedSubjectId();
 
     QTableWidget *subjectTable;
-
-    QLineEdit *searchEdit;
-
-    QPushButton *addButton;
-    QPushButton *editButton;
-    QPushButton *deleteButton;
-    QPushButton *backButton;
+    QLineEdit    *searchEdit;
+    QLineEdit    *codeEdit;
+    QLineEdit    *nameEdit;
+    QSpinBox     *semesterSpin;
+    QComboBox    *deptCombo;
+    QSpinBox     *minAttSpin;
+    QPushButton  *addBtn;
+    QPushButton  *editBtn;
+    QPushButton  *deleteBtn;
+    QPushButton  *backButton;
+    QLabel       *statusLabel;
+    Database dbConn;
 };
-
-#endif // SUBJECTMANAGEMENTWINDOW_H

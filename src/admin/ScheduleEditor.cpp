@@ -2,40 +2,50 @@
 #include "../theme/Theme.h"
 #include "../auth/FontManager.h"
 #include "AdminDashboard.h"
+#include "../db/SubjectDAO.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
-
 #include <QLabel>
 #include <QPushButton>
 #include <QComboBox>
 #include <QDateEdit>
 #include <QTimeEdit>
 #include <QLineEdit>
+#include <QSpinBox>
+#include <QGroupBox>
 #include <QTableWidget>
 #include <QHeaderView>
 #include <QMessageBox>
 #include <QFrame>
 #include <QAbstractItemView>
-#include <QInputDialog>
+#include <QDate>
 
+static const int SECONDS_IN_DAY = 86400;
 
 ScheduleEditor::ScheduleEditor(QWidget *parent)
-    : QWidget(parent)
-{
+    : QWidget(parent), dbConn("") {
+    dbConn = Database(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+    dbConn.initializeTables();
+
     setupUI();
     setupStyles();
-    loadSessions();
-}
 
+    SubjectDAO subjectDAO(dbConn.getConnection());
+    std::vector<SubjectRecord> subjects = subjectDAO.getAllSubjects();
+    subjectCombo->addItem("-- Select Subject --", -1);
+    for (auto &s : subjects) {
+        QString label = QString::fromStdString(s.subjectCode + " - " + s.subjectName);
+        subjectCombo->addItem(label, s.subjectId);
+    }
+}
 
 // =====================================
 // Setup UI
 // =====================================
 
-void ScheduleEditor::setupUI()
-{
+void ScheduleEditor::setupUI() {
     setWindowTitle("Schedule Editor");
     resize(1200, 750);
 
@@ -43,378 +53,179 @@ void ScheduleEditor::setupUI()
     // Main Layout
     // =========================
 
-    QVBoxLayout *mainLayout =
-        new QVBoxLayout(this);
-
-    mainLayout->setContentsMargins(
-        40, 30, 40, 30
-        );
-
+    QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(40, 30, 40, 30);
     mainLayout->setSpacing(20);
-
 
     // =========================
     // Header
     // =========================
 
-    QHBoxLayout *headerLayout =
-        new QHBoxLayout();
+    QHBoxLayout *headerLayout = new QHBoxLayout();
 
-    backButton =
-        new QPushButton("← Back");
+    backButton = new QPushButton("← Back");
+    backButton->setFixedSize(100, 42);
 
-    backButton->setFixedSize(
-        100, 42
-        );
+    QLabel *titleLabel = new QLabel("SCHEDULE EDITOR");
+    titleLabel->setAlignment(Qt::AlignCenter);
+    titleLabel->setFont(FontManager::headingFont(22));
 
-    QLabel *titleLabel =
-        new QLabel("SCHEDULE EDITOR");
-
-    titleLabel->setAlignment(
-        Qt::AlignCenter
-        );
-
-    titleLabel->setFont(
-        FontManager::headingFont(22)
-        );
-
-    headerLayout->addWidget(
-        backButton
-        );
-
+    headerLayout->addWidget(backButton);
+    headerLayout->addStretch();
+    headerLayout->addWidget(titleLabel);
     headerLayout->addStretch();
 
-    headerLayout->addWidget(
-        titleLabel
-        );
-
-    headerLayout->addStretch();
-
+    mainLayout->addLayout(headerLayout);
 
     // =========================
     // Subject Selection
     // =========================
 
-    QHBoxLayout *subjectLayout =
-        new QHBoxLayout();
+    QHBoxLayout *subjectLayout = new QHBoxLayout();
 
-    QLabel *subjectLabel =
-        new QLabel("Subject:");
+    QLabel *subjectLabel = new QLabel("Subject:");
 
-    subjectCombo =
-        new QComboBox();
+    subjectCombo = new QComboBox();
 
-    subjectCombo->addItem(
-        "Select Subject"
-        );
+    connect(subjectCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &ScheduleEditor::onSubjectSelected);
 
-    // Temporary subject data
-    subjectCombo->addItem(
-        "CS101 - Programming Fundamentals"
-        );
-
-    subjectCombo->addItem(
-        "CS201 - Data Structures"
-        );
-
-    subjectCombo->addItem(
-        "CS301 - Database Systems"
-        );
-
-    subjectCombo->addItem(
-        "CS401 - Computer Networks"
-        );
-
-    subjectLayout->addWidget(
-        subjectLabel
-        );
-
-    subjectLayout->addWidget(
-        subjectCombo
-        );
-
+    subjectLayout->addWidget(subjectLabel);
+    subjectLayout->addWidget(subjectCombo);
     subjectLayout->addStretch();
 
+    mainLayout->addLayout(subjectLayout);
 
     // =========================
-    // Schedule Form Card
+    // Add Session Card
     // =========================
 
-    QFrame *formCard =
-        new QFrame();
+    QGroupBox *sessionGroup = new QGroupBox("Add Session");
+    sessionGroup->setObjectName("sessionGroup");
 
-    formCard->setObjectName(
-        "formCard"
-        );
-
-    QFormLayout *formLayout =
-        new QFormLayout(formCard);
-
-    formLayout->setContentsMargins(
-        25, 25, 25, 25
-        );
-
+    QFormLayout *formLayout = new QFormLayout(sessionGroup);
+    formLayout->setContentsMargins(25, 25, 25, 25);
     formLayout->setSpacing(15);
 
+    dateEdit = new QDateEdit(QDate::currentDate());
+    dateEdit->setCalendarPopup(true);
+    dateEdit->setDisplayFormat("yyyy-MM-dd");
+    formLayout->addRow("Date:", dateEdit);
 
-    // Date
+    startTimeEdit = new QTimeEdit(QTime(8, 0));
+    startTimeEdit->setDisplayFormat("HH:mm");
+    formLayout->addRow("Start Time:", startTimeEdit);
 
-    dateEdit =
-        new QDateEdit();
+    endTimeEdit = new QTimeEdit(QTime(9, 0));
+    endTimeEdit->setDisplayFormat("HH:mm");
+    formLayout->addRow("End Time:", endTimeEdit);
 
-    dateEdit->setCalendarPopup(
-        true
-        );
+    roomEdit = new QLineEdit();
+    roomEdit->setPlaceholderText("e.g. Lab 3, Room 201");
+    formLayout->addRow("Room:", roomEdit);
 
-    dateEdit->setDate(
-        QDate::currentDate()
-        );
+    topicEdit = new QLineEdit();
+    topicEdit->setPlaceholderText("e.g. Chapter 5: Vectors");
+    formLayout->addRow("Topic:", topicEdit);
 
+    mainLayout->addWidget(sessionGroup);
 
-    // Start Time
+    // =========================
+    // Weekly Generation Card
+    // =========================
 
-    startTimeEdit =
-        new QTimeEdit();
+    QGroupBox *weeklyGroup = new QGroupBox("Add Weekly (Generate N Weeks)");
+    weeklyGroup->setObjectName("sessionGroup");
 
-    startTimeEdit->setTime(
-        QTime(10, 0)
-        );
+    QHBoxLayout *weeklyLayout = new QHBoxLayout(weeklyGroup);
+    weeklyLayout->setContentsMargins(25, 25, 25, 25);
+    weeklyLayout->setSpacing(12);
 
+    QLabel *weeksLabel = new QLabel("Weeks:");
 
-    // End Time
+    weeksSpin = new QSpinBox();
+    weeksSpin->setRange(1, 16);
+    weeksSpin->setValue(8);
 
-    endTimeEdit =
-        new QTimeEdit();
+    addWeeklyBtn = new QPushButton("Generate Weekly Sessions");
+    addWeeklyBtn->setFixedHeight(42);
 
-    endTimeEdit->setTime(
-        QTime(11, 0)
-        );
+    weeklyLayout->addWidget(weeksLabel);
+    weeklyLayout->addWidget(weeksSpin);
+    weeklyLayout->addWidget(addWeeklyBtn);
+    weeklyLayout->addStretch();
 
+    mainLayout->addWidget(weeklyGroup);
 
-    // Room
-
-    roomEdit =
-        new QLineEdit();
-
-    roomEdit->setPlaceholderText(
-        "Enter room number"
-        );
-
-
-    // Topic
-
-    topicEdit =
-        new QLineEdit();
-
-    topicEdit->setPlaceholderText(
-        "Enter session topic"
-        );
-
-
-    // Add fields
-
-    formLayout->addRow(
-        "Date:",
-        dateEdit
-        );
-
-    formLayout->addRow(
-        "Start Time:",
-        startTimeEdit
-        );
-
-    formLayout->addRow(
-        "End Time:",
-        endTimeEdit
-        );
-
-    formLayout->addRow(
-        "Room:",
-        roomEdit
-        );
-
-    formLayout->addRow(
-        "Topic:",
-        topicEdit
-        );
-
+    connect(addWeeklyBtn, &QPushButton::clicked, this, &ScheduleEditor::onAddWeeklyClicked);
 
     // =========================
     // Action Buttons
     // =========================
 
-    QHBoxLayout *actionLayout =
-        new QHBoxLayout();
+    QHBoxLayout *actionLayout = new QHBoxLayout();
+    actionLayout->setSpacing(12);
 
-    addSessionButton =
-        new QPushButton("Add Session");
+    addSessionBtn = new QPushButton("Add Single Session");
+    deleteBtn = new QPushButton("Delete Selected Session");
 
-    addWeeklyButton =
-        new QPushButton("Add Weekly");
+    addSessionBtn->setFixedHeight(42);
+    deleteBtn->setFixedHeight(42);
 
-
-    addSessionButton->setFixedHeight(
-        42
-        );
-
-    addWeeklyButton->setFixedHeight(
-        42
-        );
-
-
+    actionLayout->addWidget(addSessionBtn);
+    actionLayout->addWidget(deleteBtn);
     actionLayout->addStretch();
 
-    actionLayout->addWidget(
-        addSessionButton
-        );
+    mainLayout->addLayout(actionLayout);
 
-    actionLayout->addWidget(
-        addWeeklyButton
-        );
+    connect(addSessionBtn, &QPushButton::clicked, this, &ScheduleEditor::onAddSessionClicked);
+    connect(deleteBtn, &QPushButton::clicked, this, &ScheduleEditor::onDeleteSessionClicked);
 
+    // =========================
+    // Status Label
+    // =========================
 
-    formLayout->addRow(
-        actionLayout
-        );
-
+    statusLabel = new QLabel();
+    mainLayout->addWidget(statusLabel);
 
     // =========================
     // Session Table
     // =========================
 
-    QLabel *sessionTitle =
-        new QLabel("Scheduled Sessions");
+    QLabel *sessionTitle = new QLabel("Scheduled Sessions");
+    sessionTitle->setFont(FontManager::headingFont(18));
+    mainLayout->addWidget(sessionTitle);
 
-    sessionTitle->setFont(
-        FontManager::headingFont(18)
-        );
+    sessionTable = new QTableWidget();
+    sessionTable->setColumnCount(6);
+    sessionTable->setHorizontalHeaderLabels(
+        {"ID", "Date", "Start", "End", "Room", "Topic"});
 
+    sessionTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    sessionTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    sessionTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    sessionTable->verticalHeader()->setVisible(false);
+    sessionTable->horizontalHeader()->setStretchLastSection(true);
+    sessionTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 
-    sessionTable =
-        new QTableWidget();
-
-    sessionTable->setColumnCount(5);
-
-    sessionTable->setHorizontalHeaderLabels({
-        "Date",
-        "Time",
-        "Room",
-        "Topic",
-        "Subject"
-    });
-
-
-    sessionTable->setSelectionBehavior(
-        QAbstractItemView::SelectRows
-        );
-
-    sessionTable->setSelectionMode(
-        QAbstractItemView::SingleSelection
-        );
-
-    sessionTable->setEditTriggers(
-        QAbstractItemView::NoEditTriggers
-        );
-
-    sessionTable->verticalHeader()->setVisible(
-        false
-        );
-
-    sessionTable->horizontalHeader()
-        ->setSectionResizeMode(
-            QHeaderView::Stretch
-            );
-
-
-    // =========================
-    // Delete Button
-    // =========================
-
-    QHBoxLayout *deleteLayout =
-        new QHBoxLayout();
-
-    deleteButton =
-        new QPushButton("Delete Session");
-
-    deleteButton->setFixedSize(
-        150, 42
-        );
-
-    deleteLayout->addStretch();
-
-    deleteLayout->addWidget(
-        deleteButton
-        );
-
-
-    // =========================
-    // Add Everything
-    // =========================
-
-    mainLayout->addLayout(
-        headerLayout
-        );
-
-    mainLayout->addLayout(
-        subjectLayout
-        );
-
-    mainLayout->addWidget(
-        formCard
-        );
-
-    mainLayout->addWidget(
-        sessionTitle
-        );
-
-    mainLayout->addWidget(
-        sessionTable
-        );
-
-    mainLayout->addLayout(
-        deleteLayout
-        );
-
+    mainLayout->addWidget(sessionTable);
 
     // =========================
     // Connections
     // =========================
 
-    connect(backButton, &QPushButton::clicked, this, [this]()
-            {
-                auto *window = new AdminDashboard();
-                window->show();
-                this->close();
-            });
-    connect(
-        addSessionButton,
-        &QPushButton::clicked,
-        this,
-        &ScheduleEditor::onAddSession
-        );
-
-    connect(
-        addWeeklyButton,
-        &QPushButton::clicked,
-        this,
-        &ScheduleEditor::onAddWeekly
-        );
-
-    connect(
-        deleteButton,
-        &QPushButton::clicked,
-        this,
-        &ScheduleEditor::onDeleteSession
-        );
+    connect(backButton, &QPushButton::clicked, this, [this]() {
+        auto *window = new AdminDashboard();
+        window->show();
+        this->close();
+    });
 }
-
 
 // =====================================
 // Styling
 // =====================================
 
-void ScheduleEditor::setupStyles()
-{
+void ScheduleEditor::setupStyles() {
     setStyleSheet(QString(R"(
         QWidget {
             background:%1;
@@ -426,16 +237,27 @@ void ScheduleEditor::setupStyles()
             color:%2;
         }
 
-        QFrame#formCard {
+        QGroupBox#sessionGroup {
             background:%3;
             border:1px solid %4;
             border-radius:18px;
+            margin-top:12px;
+            font-weight:bold;
+            color:%2;
+        }
+
+        QGroupBox#sessionGroup::title {
+            subcontrol-origin:margin;
+            left:16px;
+            padding:0 6px;
+            color:%6;
         }
 
         QLineEdit,
         QComboBox,
         QDateEdit,
-        QTimeEdit {
+        QTimeEdit,
+        QSpinBox {
             background:%5;
             border:1px solid %4;
             border-radius:10px;
@@ -447,7 +269,8 @@ void ScheduleEditor::setupStyles()
         QLineEdit:focus,
         QComboBox:focus,
         QDateEdit:focus,
-        QTimeEdit:focus {
+        QTimeEdit:focus,
+        QSpinBox:focus {
             border:1px solid %6;
         }
 
@@ -457,10 +280,16 @@ void ScheduleEditor::setupStyles()
             border:1px solid %4;
             border-radius:10px;
             padding:8px 18px;
+            font-weight:bold;
         }
 
         QPushButton:hover {
             background:%7;
+        }
+
+        QLabel#statusLabel,
+        QLabel {
+            color:%2;
         }
 
         QTableWidget {
@@ -493,428 +322,135 @@ void ScheduleEditor::setupStyles()
                       .arg(Theme::Input)
                       .arg(Theme::Gold)
                       .arg(Theme::Hover));
-}
 
+    statusLabel->setStyleSheet(QString("QLabel{ color:%1; padding:4px; font-weight:bold; }")
+                                    .arg(Theme::Success));
+}
 
 // =====================================
-// Temporary Session Data
+// Logic (unchanged from integration)
 // =====================================
 
-void ScheduleEditor::loadSessions()
-{
-    // Temporary data for UI testing.
-
-    sessionTable->setRowCount(2);
-
-    sessionTable->setItem(
-        0, 0,
-        new QTableWidgetItem("2026-07-25")
-        );
-
-    sessionTable->setItem(
-        0, 1,
-        new QTableWidgetItem("10:00 - 11:00")
-        );
-
-    sessionTable->setItem(
-        0, 2,
-        new QTableWidgetItem("Room 301")
-        );
-
-    sessionTable->setItem(
-        0, 3,
-        new QTableWidgetItem("Introduction to Programming")
-        );
-
-    sessionTable->setItem(
-        0, 4,
-        new QTableWidgetItem("CS101")
-        );
-
-
-    sessionTable->setItem(
-        1, 0,
-        new QTableWidgetItem("2026-07-27")
-        );
-
-    sessionTable->setItem(
-        1, 1,
-        new QTableWidgetItem("10:00 - 11:00")
-        );
-
-    sessionTable->setItem(
-        1, 2,
-        new QTableWidgetItem("Room 301")
-        );
-
-    sessionTable->setItem(
-        1, 3,
-        new QTableWidgetItem("Variables and Data Types")
-        );
-
-    sessionTable->setItem(
-        1, 4,
-        new QTableWidgetItem("CS101")
-        );
+void ScheduleEditor::onSubjectSelected(int index) {
+    refreshSessionList();
 }
 
-
-void ScheduleEditor::onAddSession()
-{
-    // =========================
-    // Validate Subject
-    // =========================
-
-    if (subjectCombo->currentIndex() == 0) {
-        QMessageBox::warning(
-            this,
-            "No Subject Selected",
-            "Please select a subject first."
-            );
+void ScheduleEditor::refreshSessionList() {
+    int subjectId = subjectCombo->currentData().toInt();
+    if (subjectId < 0) {
+        sessionTable->setRowCount(0);
         return;
     }
 
+    SubjectDAO subjectDAO(dbConn.getConnection());
+    std::vector<ClassSessionRecord> sessions = subjectDAO.getSessionsForSubject(subjectId);
 
-    // =========================
-    // Validate Room
-    // =========================
-
-    QString room = roomEdit->text().trimmed();
-
-    if (room.isEmpty()) {
-        QMessageBox::warning(
-            this,
-            "Missing Room",
-            "Please enter the room number."
-            );
-        return;
+    sessionTable->setRowCount(static_cast<int>(sessions.size()));
+    for (int i = 0; i < static_cast<int>(sessions.size()); ++i) {
+        auto &s = sessions[i];
+        sessionTable->setItem(i, 0, new QTableWidgetItem(QString::number(s.sessionId)));
+        sessionTable->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(s.sessionDate)));
+        sessionTable->setItem(i, 2, new QTableWidgetItem(QString::fromStdString(s.sessionStartTime)));
+        sessionTable->setItem(i, 3, new QTableWidgetItem(QString::fromStdString(s.sessionEndTime)));
+        sessionTable->setItem(i, 4, new QTableWidgetItem(QString::fromStdString(s.sessionRoom)));
+        sessionTable->setItem(i, 5, new QTableWidgetItem(QString::fromStdString(s.sessionTopic)));
     }
-
-
-    // =========================
-    // Validate Topic
-    // =========================
-
-    QString topic = topicEdit->text().trimmed();
-
-    if (topic.isEmpty()) {
-        QMessageBox::warning(
-            this,
-            "Missing Topic",
-            "Please enter the session topic."
-            );
-        return;
-    }
-
-
-    // =========================
-    // Validate Time
-    // =========================
-
-    if (startTimeEdit->time() >= endTimeEdit->time()) {
-        QMessageBox::warning(
-            this,
-            "Invalid Time",
-            "End time must be later than start time."
-            );
-        return;
-    }
-
-
-    // =========================
-    // Get Form Data
-    // =========================
-
-    QString date =
-        dateEdit->date().toString("yyyy-MM-dd");
-
-    QString startTime =
-        startTimeEdit->time().toString("HH:mm");
-
-    QString endTime =
-        endTimeEdit->time().toString("HH:mm");
-
-    QString time =
-        startTime + " - " + endTime;
-
-    QString subject =
-        subjectCombo->currentText();
-
-
-    // =========================
-    // Add New Row
-    // =========================
-
-    int row =
-        sessionTable->rowCount();
-
-    sessionTable->insertRow(row);
-
-
-    sessionTable->setItem(
-        row,
-        0,
-        new QTableWidgetItem(date)
-        );
-
-    sessionTable->setItem(
-        row,
-        1,
-        new QTableWidgetItem(time)
-        );
-
-    sessionTable->setItem(
-        row,
-        2,
-        new QTableWidgetItem(room)
-        );
-
-    sessionTable->setItem(
-        row,
-        3,
-        new QTableWidgetItem(topic)
-        );
-
-    sessionTable->setItem(
-        row,
-        4,
-        new QTableWidgetItem(subject)
-        );
-
-
-    // =========================
-    // Clear Form
-    // =========================
-
-    roomEdit->clear();
-    topicEdit->clear();
-
-
-    // =========================
-    // Confirmation
-    // =========================
-
-    QMessageBox::information(
-        this,
-        "Session Added",
-        "The session has been added successfully."
-        );
 }
 
+void ScheduleEditor::addSingleSession(int subjectId, const std::string &date,
+                                      const std::string &start, const std::string &end,
+                                      const std::string &room, const std::string &topic) {
+    SubjectDAO subjectDAO(dbConn.getConnection());
+    subjectDAO.createClassSession(subjectId, date, start, end, room, topic);
+}
 
-void ScheduleEditor::onAddWeekly()
-{
-    // Check subject selection
-    if (subjectCombo->currentIndex() == 0) {
-        QMessageBox::warning(
-            this,
-            "No Subject Selected",
-            "Please select a subject first."
-            );
+void ScheduleEditor::onAddSessionClicked() {
+    int subjectId = subjectCombo->currentData().toInt();
+    if (subjectId < 0) {
+        statusLabel->setText("Error: Please select a subject first.");
         return;
     }
 
-    // Check room
-    if (roomEdit->text().trimmed().isEmpty()) {
-        QMessageBox::warning(
-            this,
-            "Missing Room",
-            "Please enter the room number."
-            );
+    std::string date = dateEdit->date().toString("yyyy-MM-dd").toStdString();
+    std::string start = startTimeEdit->time().toString("HH:mm").toStdString();
+    std::string end = endTimeEdit->time().toString("HH:mm").toStdString();
+    std::string room = roomEdit->text().trimmed().toStdString();
+    std::string topic = topicEdit->text().trimmed().toStdString();
+
+    if (start >= end) {
+        statusLabel->setText("Error: Start time must be before end time.");
         return;
     }
 
-    // Check topic
-    if (topicEdit->text().trimmed().isEmpty()) {
-        QMessageBox::warning(
-            this,
-            "Missing Topic",
-            "Please enter the session topic."
-            );
+    addSingleSession(subjectId, date, start, end, room, topic);
+    statusLabel->setText("Session added successfully.");
+    refreshSessionList();
+    emit scheduleChanged();
+}
+
+void ScheduleEditor::onAddWeeklyClicked() {
+    int subjectId = subjectCombo->currentData().toInt();
+    if (subjectId < 0) {
+        statusLabel->setText("Error: Please select a subject first.");
         return;
     }
 
-    // Check time
-    if (startTimeEdit->time() >= endTimeEdit->time()) {
-        QMessageBox::warning(
-            this,
-            "Invalid Time",
-            "End time must be later than start time."
-            );
-        return;
-    }
-
-    // Ask how many weeks
-    bool ok = false;
-
-    int weeks = QInputDialog::getInt(
-        this,
-        "Add Weekly Sessions",
-        "Number of weeks:",
-        4,      // Default
-        1,      // Minimum
-        52,     // Maximum
-        1,      // Step
-        &ok
-        );
-
-    if (!ok) {
-        return;
-    }
-
-    // Get selected values
+    int numWeeks = weeksSpin->value();
     QDate startDate = dateEdit->date();
+    int dayOfWeek = startDate.dayOfWeek();
 
-    QString startTime =
-        startTimeEdit->time().toString("HH:mm");
+    std::string start = startTimeEdit->time().toString("HH:mm").toStdString();
+    std::string end = endTimeEdit->time().toString("HH:mm").toStdString();
+    std::string room = roomEdit->text().trimmed().toStdString();
+    std::string topic = topicEdit->text().trimmed().toStdString();
 
-    QString endTime =
-        endTimeEdit->time().toString("HH:mm");
-
-    QString room =
-        roomEdit->text().trimmed();
-
-    QString topic =
-        topicEdit->text().trimmed();
-
-    QString subject =
-        subjectCombo->currentText();
-
-    // Add one session per week
-    for (int i = 0; i < weeks; ++i) {
-
-        QDate sessionDate =
-            startDate.addDays(i * 7);
-
-        int row =
-            sessionTable->rowCount();
-
-        sessionTable->insertRow(row);
-
-        sessionTable->setItem(
-            row,
-            0,
-            new QTableWidgetItem(
-                sessionDate.toString("yyyy-MM-dd")
-                )
-            );
-
-        sessionTable->setItem(
-            row,
-            1,
-            new QTableWidgetItem(
-                startTime + " - " + endTime
-                )
-            );
-
-        sessionTable->setItem(
-            row,
-            2,
-            new QTableWidgetItem(room)
-            );
-
-        sessionTable->setItem(
-            row,
-            3,
-            new QTableWidgetItem(topic)
-            );
-
-        sessionTable->setItem(
-            row,
-            4,
-            new QTableWidgetItem(subject)
-            );
-    }
-
-    QMessageBox::information(
-        this,
-        "Weekly Schedule Added",
-        QString("%1 weekly sessions have been added successfully.")
-            .arg(weeks)
-        );
-}
-
-
-void ScheduleEditor::onDeleteSession()
-{
-    // =========================
-    // Check Selection
-    // =========================
-
-    int selectedRow =
-        sessionTable->currentRow();
-
-    if (selectedRow < 0) {
-        QMessageBox::warning(
-            this,
-            "No Session Selected",
-            "Please select a session to delete."
-            );
+    if (start >= end) {
+        statusLabel->setText("Error: Start time must be before end time.");
         return;
     }
 
+    int created = 0;
+    for (int w = 0; w < numWeeks; ++w) {
+        QDate sessionDate = startDate.addDays(w * 7);
+        if (sessionDate.dayOfWeek() != dayOfWeek) {
+            int diff = dayOfWeek - sessionDate.dayOfWeek();
+            sessionDate = sessionDate.addDays(diff);
+        }
+        if (sessionDate < QDate::currentDate()) continue;
 
-    // =========================
-    // Get Session Information
-    // =========================
+        addSingleSession(subjectId,
+                         sessionDate.toString("yyyy-MM-dd").toStdString(),
+                         start, end, room, topic);
+        created++;
+    }
 
-    QString date =
-        sessionTable->item(selectedRow, 0)
-            ->text();
+    statusLabel->setText(QString("Generated %1 weekly session(s).").arg(created));
+    refreshSessionList();
+    emit scheduleChanged();
+}
 
-    QString time =
-        sessionTable->item(selectedRow, 1)
-            ->text();
+void ScheduleEditor::onDeleteSessionClicked() {
+    int row = sessionTable->currentRow();
+    if (row < 0) {
+        QMessageBox::warning(this, "No Selection", "Please select a session to delete.");
+        return;
+    }
 
-    QString room =
-        sessionTable->item(selectedRow, 2)
-            ->text();
+    int sessionId = sessionTable->item(row, 0)->text().toInt();
 
-    QString topic =
-        sessionTable->item(selectedRow, 3)
-            ->text();
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this, "Confirm Delete",
+        "Delete this session and all its attendance records?",
+        QMessageBox::Yes | QMessageBox::No);
 
-    QString subject =
-        sessionTable->item(selectedRow, 4)
-            ->text();
+    if (reply != QMessageBox::Yes) return;
 
-
-    // =========================
-    // Confirmation Dialog
-    // =========================
-
-    QMessageBox::StandardButton reply =
-        QMessageBox::question(
-            this,
-            "Delete Session",
-            "Are you sure you want to delete this session?\n\n"
-            "Subject: " + subject +
-                "\nDate: " + date +
-                "\nTime: " + time +
-                "\nRoom: " + room +
-                "\nTopic: " + topic,
-
-            QMessageBox::Yes |
-                QMessageBox::No,
-
-            QMessageBox::No
-            );
-
-
-    // =========================
-    // Delete Row
-    // =========================
-
-    if (reply == QMessageBox::Yes) {
-
-        sessionTable->removeRow(
-            selectedRow
-            );
-
-        QMessageBox::information(
-            this,
-            "Session Deleted",
-            "The session has been deleted successfully."
-            );
+    SubjectDAO subjectDAO(dbConn.getConnection());
+    if (subjectDAO.deleteClassSession(sessionId)) {
+        statusLabel->setText("Session deleted.");
+        refreshSessionList();
+        emit scheduleChanged();
+    } else {
+        statusLabel->setText("Error: Failed to delete session.");
     }
 }
