@@ -6,6 +6,7 @@
 #include "../db/StudentDAO.h"
 #include "../db/AttendanceDAO.h"
 #include "../db/SubjectDAO.h"
+#include "../db/DbPath.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>

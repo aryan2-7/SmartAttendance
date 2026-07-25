@@ -36,6 +36,11 @@ public:
 
     std::vector<AttendanceRecord> getAllRecords();
 
+    // Joined, human-readable attendance rows for a date range, optionally
+    // filtered to one subject (pass subjectId < 0 for all subjects).
+    std::vector<AttendanceDisplayRecord> getDisplayRecords(
+        const std::string& startDate, const std::string& endDate, int subjectId = -1);
+
     std::vector<SubjectAttendancePercentage> getSubjectAttendancePercentage(int subjectId);
 
     // Returns the sessionId of the class session happening right now, or -1 if none.

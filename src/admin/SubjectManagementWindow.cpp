@@ -1,5 +1,6 @@
 #include "SubjectManagementWindow.h"
 #include "../db/SubjectDAO.h"
+#include "../db/DbPath.h"
 #include "../theme/Theme.h"
 #include "../auth/FontManager.h"
 #include "AdminDashboard.h"
@@ -16,6 +17,7 @@
 #include <QComboBox>
 #include <QSpinBox>
 #include <QFont>
+#include <QGroupBox>
 
 SubjectManagementWindow::SubjectManagementWindow(QWidget *parent)
     : QWidget(parent), dbConn("") {

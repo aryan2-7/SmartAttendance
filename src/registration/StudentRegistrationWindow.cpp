@@ -2,7 +2,9 @@
 #include "../auth/FontManager.h"
 #include "../auth/WelcomeWindow.h"
 #include "../theme/Theme.h"
-#include "../db/db.h"
+#include "../db/Database.h"
+#include "../db/StudentDAO.h"
+#include "../db/DbPath.h"
 
 #include <QVBoxLayout>
 #include <QLabel>
@@ -409,9 +411,10 @@ void StudentRegistrationWindow::onRegisterClicked() {
         return;
     }
 
-    Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+    Database db(appDbPath());
     db.initializeTables();
-    if (db.studentExists(rollNum)) {
+    StudentDAO studentDAO(db.getConnection());
+    if (studentDAO.studentExists(rollNum)) {
         QMessageBox::warning(this, "Exists", "Student with this roll number already exists!");
         return;
     }
@@ -493,9 +496,10 @@ void StudentRegistrationWindow::saveEmbeddings(const QString &name, const QStrin
     ofs.write(reinterpret_cast<char*>(gallery.data), rows * cols * sizeof(float));
     ofs.close();
 
-    Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+    Database db(appDbPath());
     db.initializeTables();
-    if (!db.addStudent(name.toStdString(), roll.toInt(), filename.toStdString())) {
+    StudentDAO studentDAO(db.getConnection());
+    if (!studentDAO.addStudent(name.toStdString(), roll.toInt(), filename.toStdString())) {
         QFile::remove(filename);
         statusLabel->setText("Registration failed!");
         registerButton->setEnabled(true);

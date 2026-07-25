@@ -110,6 +110,21 @@ bool StudentDAO::enrollStudent(int enrollmentStudentId, int enrollmentSubjectId)
     return success;
 }
 
+// Removes a student/subject enrollment link (inverse of enrollStudent)
+bool StudentDAO::unenrollStudent(int enrollmentStudentId, int enrollmentSubjectId) {
+    const char* sql = "DELETE FROM enrollments WHERE enrollmentStudentId = ? AND enrollmentSubjectId = ?;";
+    sqlite3_stmt* stmt = nullptr;
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+
+    sqlite3_bind_int(stmt, 1, enrollmentStudentId);
+    sqlite3_bind_int(stmt, 2, enrollmentSubjectId);
+
+    bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+    sqlite3_finalize(stmt);
+    return success;
+}
+
 // Returns every subject a student is enrolled in.
 std::vector<EnrollmentRecord> StudentDAO::getEnrollmentsForStudent(int studentId) {
     std::vector<EnrollmentRecord> records;

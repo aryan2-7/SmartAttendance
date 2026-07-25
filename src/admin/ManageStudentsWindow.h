@@ -15,6 +15,7 @@ public:
 private:
     void setupUI();
     void refreshTable();
+    void openEnrollmentDialog(int studentId, const QString &studentName);
 
     QTableWidget *table;
     QLabel *totalStudentsLabel;

@@ -2,7 +2,10 @@
 #include "../auth/FontManager.h"
 #include "AdminDashboard.h"
 #include "../theme/Theme.h"
-#include "../db/db.h"
+#include "../db/Database.h"
+#include "../db/StudentDAO.h"
+#include "../db/SubjectDAO.h"
+#include "../db/DbPath.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -17,6 +20,11 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QDir>
+#include <QDialog>
+#include <QCheckBox>
+#include <QScrollArea>
+#include <QDialogButtonBox>
+#include <set>
 
 ManageStudentsWindow::ManageStudentsWindow(QWidget *parent)
     : QWidget(parent)
@@ -27,28 +35,34 @@ ManageStudentsWindow::ManageStudentsWindow(QWidget *parent)
 }
 
 void ManageStudentsWindow::refreshTable() {
-    Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+    Database db(appDbPath());
     db.initializeTables();
-    std::vector<StudentRecordDB> students = db.getAllStudents();
+    StudentDAO studentDAO(db.getConnection());
+    std::vector<StudentRecord> students = studentDAO.getAllStudents();
 
     table->setRowCount(static_cast<int>(students.size()));
     for (size_t i = 0; i < students.size(); ++i) {
-        QTableWidgetItem *idItem = new QTableWidgetItem(QString::number(students[i].id));
-        idItem->setData(Qt::UserRole, students[i].rollNumber);
-        idItem->setData(Qt::UserRole + 1, QString::fromStdString(students[i].modelPath));
+        QTableWidgetItem *idItem = new QTableWidgetItem(QString::number(students[i].studentId));
+        idItem->setData(Qt::UserRole, students[i].studentRollNumber);
+        idItem->setData(Qt::UserRole + 1, QString::fromStdString(students[i].studentModelPath));
         table->setItem(i, 0, idItem);
-        table->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(students[i].name)));
-        table->setItem(i, 2, new QTableWidgetItem(QString::number(students[i].rollNumber)));
+        table->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(students[i].studentName)));
+        table->setItem(i, 2, new QTableWidgetItem(QString::number(students[i].studentRollNumber)));
+
+        QTableWidgetItem *subjectsItem = new QTableWidgetItem("Manage");
+        subjectsItem->setTextAlignment(Qt::AlignCenter);
+        subjectsItem->setForeground(QBrush(QColor(Theme::Success)));
+        table->setItem(i, 3, subjectsItem);
 
         QTableWidgetItem *editItem = new QTableWidgetItem("Edit");
         editItem->setTextAlignment(Qt::AlignCenter);
         editItem->setForeground(QBrush(QColor(Theme::Gold)));
-        table->setItem(i, 3, editItem);
+        table->setItem(i, 4, editItem);
 
         QTableWidgetItem *deleteItem = new QTableWidgetItem("Delete");
         deleteItem->setTextAlignment(Qt::AlignCenter);
         deleteItem->setForeground(QBrush(QColor(Theme::Danger)));
-        table->setItem(i, 4, deleteItem);
+        table->setItem(i, 5, deleteItem);
     }
 
     totalStudentsLabel->setText(
@@ -186,10 +200,10 @@ QLineEdit::placeholder{
 
     // Table
     table = new QTableWidget();
-    table->setColumnCount(5);
+    table->setColumnCount(6);
     table->setHorizontalHeaderLabels({
         "Student ID", "Student Name", "Roll No",
-        "Edit", "Delete"
+        "Subjects", "Edit", "Delete"
     });
     table->horizontalHeader()->setStretchLastSection(true);
     table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
@@ -211,9 +225,13 @@ QLineEdit::placeholder{
     connect(table, &QTableWidget::cellClicked, this, [this](int row, int col) {
         if (row < 0 || row >= table->rowCount()) return;
 
+        int studentId = table->item(row, 0)->text().toInt();
         int rollNumber = table->item(row, 0)->data(Qt::UserRole).toInt();
 
-        if (col == 3) { // Edit
+        if (col == 3) { // Subjects (enroll / unenroll)
+            openEnrollmentDialog(studentId, table->item(row, 1)->text());
+
+        } else if (col == 4) { // Edit
             QString newName = QInputDialog::getText(
                 this, "Edit Student", "New Name:",
                 QLineEdit::Normal, table->item(row, 1)->text());
@@ -224,10 +242,11 @@ QLineEdit::placeholder{
                 rollNumber, 1, 99999);
             if (newRoll <= 0) return;
 
-            Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+            Database db(appDbPath());
             db.initializeTables();
+            StudentDAO studentDAO(db.getConnection());
 
-            if (newRoll != rollNumber && db.studentExists(newRoll)) {
+            if (newRoll != rollNumber && studentDAO.studentExists(newRoll)) {
                 QMessageBox::warning(this, "Duplicate Roll",
                     "Another student already has roll number " + QString::number(newRoll) + ".");
                 return;
@@ -246,13 +265,13 @@ QLineEdit::placeholder{
                 }
             }
 
-            if (!db.updateStudent(rollNumber, newName.toStdString(), newRoll, newPath.toStdString())) {
+            if (!studentDAO.updateStudent(rollNumber, newName.toStdString(), newRoll, newPath.toStdString())) {
                 QMessageBox::critical(this, "Error", "Failed to update student in database.");
                 return;
             }
             refreshTable();
 
-        } else if (col == 4) { // Delete
+        } else if (col == 5) { // Delete
             auto reply = QMessageBox::question(
                 this, "Confirm Delete",
                 "Are you sure you want to delete " +
@@ -267,9 +286,10 @@ QLineEdit::placeholder{
                         file.remove();
                     }
                 }
-                Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+                Database db(appDbPath());
                 db.initializeTables();
-                if (!db.deleteStudent(rollNumber)) {
+                StudentDAO studentDAO(db.getConnection());
+                if (!studentDAO.deleteStudent(rollNumber)) {
                     QMessageBox::critical(this, "Error", "Failed to delete student from database.");
                     return;
                 }
@@ -277,4 +297,81 @@ QLineEdit::placeholder{
             }
         }
     });
+}
+
+// =====================================
+// Enrollment dialog: pick which subjects this student is enrolled in
+// =====================================
+
+void ManageStudentsWindow::openEnrollmentDialog(int studentId, const QString &studentName) {
+    Database db(appDbPath());
+    db.initializeTables();
+    SubjectDAO subjectDAO(db.getConnection());
+    StudentDAO studentDAO(db.getConnection());
+
+    std::vector<SubjectRecord> subjects = subjectDAO.getAllSubjects();
+    std::vector<EnrollmentRecord> enrollments = studentDAO.getEnrollmentsForStudent(studentId);
+
+    std::set<int> enrolledSubjectIds;
+    for (auto &e : enrollments) enrolledSubjectIds.insert(e.enrollmentSubjectId);
+
+    QDialog dialog(this);
+    dialog.setWindowTitle("Manage Subjects — " + studentName);
+    dialog.resize(420, 480);
+    dialog.setStyleSheet(styleSheet());
+
+    QVBoxLayout *layout = new QVBoxLayout(&dialog);
+
+    QLabel *header = new QLabel("Select the subjects " + studentName + " is enrolled in:");
+    header->setWordWrap(true);
+    layout->addWidget(header);
+
+    if (subjects.empty()) {
+        layout->addWidget(new QLabel(
+            "No subjects exist yet. Add some from Subject Management first."));
+    }
+
+    QScrollArea *scrollArea = new QScrollArea();
+    scrollArea->setWidgetResizable(true);
+    QWidget *checklistWidget = new QWidget();
+    QVBoxLayout *checklistLayout = new QVBoxLayout(checklistWidget);
+
+    std::vector<QCheckBox*> checkBoxes;
+    std::vector<int> subjectIds;
+    for (auto &s : subjects) {
+        QCheckBox *cb = new QCheckBox(
+            QString::fromStdString(s.subjectCode + " - " + s.subjectName));
+        cb->setChecked(enrolledSubjectIds.count(s.subjectId) > 0);
+        checklistLayout->addWidget(cb);
+        checkBoxes.push_back(cb);
+        subjectIds.push_back(s.subjectId);
+    }
+    checklistLayout->addStretch();
+    scrollArea->setWidget(checklistWidget);
+    layout->addWidget(scrollArea);
+
+    QDialogButtonBox *buttons = new QDialogButtonBox(
+        QDialogButtonBox::Save | QDialogButtonBox::Cancel);
+    layout->addWidget(buttons);
+
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    if (dialog.exec() != QDialog::Accepted) return;
+
+    int changed = 0;
+    for (size_t i = 0; i < checkBoxes.size(); ++i) {
+        bool wasEnrolled = enrolledSubjectIds.count(subjectIds[i]) > 0;
+        bool nowChecked = checkBoxes[i]->isChecked();
+        if (nowChecked && !wasEnrolled) {
+            if (studentDAO.enrollStudent(studentId, subjectIds[i])) ++changed;
+        } else if (!nowChecked && wasEnrolled) {
+            if (studentDAO.unenrollStudent(studentId, subjectIds[i])) ++changed;
+        }
+    }
+
+    if (changed > 0) {
+        QMessageBox::information(this, "Subjects Updated",
+            QString("Updated %1 enrollment(s) for %2.").arg(changed).arg(studentName));
+    }
 }

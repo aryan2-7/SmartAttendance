@@ -145,6 +145,54 @@ std::vector<AttendanceRecord> AttendanceDAO::getAllRecords() {
     return records;
 }
 
+// Joined attendance rows (student name/roll + session date/time) for a date
+// range, optionally scoped to a single subject via the class_sessions link.
+std::vector<AttendanceDisplayRecord> AttendanceDAO::getDisplayRecords(
+    const std::string& startDate, const std::string& endDate, int subjectId) {
+    std::vector<AttendanceDisplayRecord> records;
+
+    std::string sql =
+        "SELECT s.studentId, s.studentName, s.studentRollNumber, "
+        "cs.sessionDate, a.attendanceTime, a.attendanceStatus "
+        "FROM attendance a "
+        "JOIN students s ON s.studentId = a.attendanceStudentId "
+        "JOIN class_sessions cs ON cs.sessionId = a.attendanceSessionId "
+        "WHERE cs.sessionDate BETWEEN ? AND ? ";
+    if (subjectId >= 0) {
+        sql += "AND cs.sessionSubjectId = ? ";
+    }
+    sql += "ORDER BY cs.sessionDate DESC, a.attendanceTime DESC;";
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        return records;
+    }
+
+    sqlite3_bind_text(stmt, 1, startDate.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, endDate.c_str(), -1, SQLITE_TRANSIENT);
+    if (subjectId >= 0) {
+        sqlite3_bind_int(stmt, 3, subjectId);
+    }
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        AttendanceDisplayRecord r;
+        r.displayStudentId = sqlite3_column_int(stmt, 0);
+        const char* nameText = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        if (nameText) r.displayStudentName = nameText;
+        r.displayRollNumber = sqlite3_column_int(stmt, 2);
+        const char* dateText = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        if (dateText) r.displaySessionDate = dateText;
+        const char* timeText = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+        if (timeText) r.displayAttendanceTime = timeText;
+        const char* statusText = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+        if (statusText) r.displayAttendanceStatus = statusText;
+        records.push_back(r);
+    }
+
+    sqlite3_finalize(stmt);
+    return records;
+}
+
 // Finds lecture attendance per student
 std::vector<SubjectAttendancePercentage> AttendanceDAO::getSubjectAttendancePercentage(int subjectId) {
     std::vector<SubjectAttendancePercentage> calculationList;

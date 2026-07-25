@@ -3,6 +3,7 @@
 #include "../auth/FontManager.h"
 #include "AdminDashboard.h"
 #include "../db/SubjectDAO.h"
+#include "../db/DbPath.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -331,7 +332,7 @@ void ScheduleEditor::setupStyles() {
 // Logic (unchanged from integration)
 // =====================================
 
-void ScheduleEditor::onSubjectSelected(int index) {
+void ScheduleEditor::onSubjectSelected(int /*index*/) {
     refreshSessionList();
 }
 

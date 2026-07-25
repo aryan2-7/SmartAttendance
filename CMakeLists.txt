@@ -4,6 +4,11 @@ project(SmartAttendance VERSION 1.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Default to an optimized build unless the caller asked for something else.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
+endif()
+
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
@@ -92,11 +97,9 @@ add_executable(SmartAttendance
     src/db/AttendanceDAO.h
     src/db/UserDAO.h
     src/db/sha256.h
+    src/db/DbPath.h
     src/theme/Theme.h
     fonts.qrc
-    src/admin/SubjectManagementWindow.h
-    src/admin/ScheduleEditor.h
-    src/admin/ScheduleEditor.cpp
 )
 
 target_include_directories(SmartAttendance PRIVATE
@@ -115,6 +118,10 @@ target_link_libraries(SmartAttendance PRIVATE
     ${QT_LIBS}
     ${OpenCV_LIBS}
 )
+
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(SmartAttendance PRIVATE -Wall -Wextra)
+endif()
 
 string(REPLACE "\\" "/" NORMALIZED_SOURCE_DIR "${CMAKE_SOURCE_DIR}")
 target_compile_definitions(SmartAttendance PRIVATE

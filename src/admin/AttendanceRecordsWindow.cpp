@@ -2,13 +2,18 @@
 #include "../auth/FontManager.h"
 #include "AdminDashboard.h"
 #include "../theme/Theme.h"
-#include "../db/db.h"
+#include "../db/Database.h"
+#include "../db/StudentDAO.h"
+#include "../db/SubjectDAO.h"
+#include "../db/AttendanceDAO.h"
+#include "../db/DbPath.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFrame>
 #include <QLabel>
 #include <QPushButton>
+#include <QComboBox>
 
 #include <QDate>
 #include <QTableWidget>
@@ -24,6 +29,7 @@ AttendanceRecordsWindow::AttendanceRecordsWindow(QWidget *parent)
 {
     setAttribute(Qt::WA_DeleteOnClose);
     setupUI();
+    refreshView();
 }
 
 void AttendanceRecordsWindow::setupUI()
@@ -71,7 +77,7 @@ QPushButton{
 QPushButton:hover{
     background:%5;
 }
-QLineEdit, QDateEdit{
+QLineEdit, QDateEdit, QComboBox{
     background:%6;
     color:%4;
     border:1px solid %2;
@@ -79,7 +85,7 @@ QLineEdit, QDateEdit{
     padding:10px;
     font-size:14px;
 }
-QLineEdit:focus, QDateEdit:focus{
+QLineEdit:focus, QDateEdit:focus, QComboBox:focus{
     border:1px solid %7;
 }
 QLabel{
@@ -98,7 +104,7 @@ QLabel{
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(30,25,30,25);
-    mainLayout->setSpacing(25);
+    mainLayout->setSpacing(20);
     mainLayout->setAlignment(Qt::AlignTop);
 
     // Header
@@ -122,112 +128,169 @@ QLabel{
     header->addStretch();
     mainLayout->addLayout(header);
 
-    // Card
+    // Filters
+    QHBoxLayout *filterLayout = new QHBoxLayout();
+    filterLayout->setSpacing(15);
+
+    QLabel *subjectLabel = new QLabel("Subject:");
+    subjectCombo = new QComboBox();
+    subjectCombo->setMinimumWidth(240);
+
+    QLabel *rangeLabel = new QLabel("Range:");
+    rangeCombo = new QComboBox();
+    rangeCombo->addItems({"Today", "This Week", "This Month", "All Time"});
+
+    QPushButton *refreshButton = new QPushButton("Refresh");
+    refreshButton->setFixedSize(110,42);
+
+    filterLayout->addWidget(subjectLabel);
+    filterLayout->addWidget(subjectCombo);
+    filterLayout->addSpacing(15);
+    filterLayout->addWidget(rangeLabel);
+    filterLayout->addWidget(rangeCombo);
+    filterLayout->addStretch();
+    filterLayout->addWidget(refreshButton);
+    mainLayout->addLayout(filterLayout);
+
+    connect(subjectCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &AttendanceRecordsWindow::refreshView);
+    connect(rangeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &AttendanceRecordsWindow::refreshView);
+    connect(refreshButton, &QPushButton::clicked, this, &AttendanceRecordsWindow::refreshView);
+
+    rangeSummaryLabel = new QLabel();
+    rangeSummaryLabel->setStyleSheet(QString("color:%1; font-size:13px;").arg(Theme::Secondary));
+    mainLayout->addWidget(rangeSummaryLabel);
+
+    // Roster card
     QFrame *card = new QFrame();
     card->setObjectName("card");
     QVBoxLayout *cardLayout = new QVBoxLayout(card);
     cardLayout->setContentsMargins(20,20,20,20);
     cardLayout->setSpacing(20);
 
-    QLabel *rosterTitle = new QLabel("Today's Attendance Roster");
+    QLabel *rosterTitle = new QLabel("Attendance Log");
     rosterTitle->setFont(FontManager::headingFont(18));
     rosterTitle->setStyleSheet(QString("color:%1;").arg(Theme::Gold));
     cardLayout->addWidget(rosterTitle);
 
-    // Fetch data
-    Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
-    db.initializeTables();
-    auto students = db.getAllStudents();
-    auto records = db.getAllRecords();
-
-    std::string today = QDate::currentDate().toString("yyyy-MM-dd").toStdString();
-    std::set<int> presentRolls;
-    std::map<int, std::string> presentTimes;
-    for (auto &r : records) {
-        if (r.date == today) {
-            presentRolls.insert(r.rollNumber);
-            if (presentTimes.count(r.rollNumber) == 0)
-                presentTimes[r.rollNumber] = r.time;
-        }
-    }
-
-    QTableWidget *rosterTable = new QTableWidget();
-    rosterTable->setColumnCount(3);
-    rosterTable->setHorizontalHeaderLabels({"Student Name", "Roll No", "Status"});
+    rosterTable = new QTableWidget();
+    rosterTable->setColumnCount(4);
+    rosterTable->setHorizontalHeaderLabels({"Student Name", "Roll No", "Date", "Time"});
     rosterTable->horizontalHeader()->setStretchLastSection(true);
     rosterTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
     rosterTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     rosterTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     rosterTable->setSelectionMode(QAbstractItemView::NoSelection);
     rosterTable->verticalHeader()->hide();
-    rosterTable->setShowGrid(false);
-    rosterTable->verticalHeader()->setDefaultSectionSize(40);
-
-    rosterTable->setShowGrid(true);
-    rosterTable->setStyleSheet(QString(R"(
-        QTableWidget{
-            background:%1;
-            border:1px solid %2;
-            border-radius:14px;
-            gridline-color:%2;
-            selection-background-color:%3;
-            color:%4;
-            font-size:14px;
-        }
-        QHeaderView::section{
-            background:%5;
-            color:%4;
-            border:none;
-            padding:10px;
-            font-weight:bold;
-        }
-    )")
-        .arg(Theme::Input)
-        .arg(Theme::Border)
-        .arg(Theme::Gold)
-        .arg(Theme::Primary)
-        .arg(Theme::Surface));
-
-    rosterTable->setRowCount(static_cast<int>(students.size()));
-    for (size_t i = 0; i < students.size(); ++i) {
-        auto &s = students[i];
-
-        QTableWidgetItem *nameItem = new QTableWidgetItem(QString::fromStdString(s.name));
-        nameItem->setForeground(QColor(Theme::Primary));
-        rosterTable->setItem(i, 0, nameItem);
-
-        QTableWidgetItem *rollItem = new QTableWidgetItem(QString::number(s.rollNumber));
-        rollItem->setForeground(QColor(Theme::Secondary));
-        rosterTable->setItem(i, 1, rollItem);
-
-        bool isPresent = presentRolls.count(s.rollNumber) > 0;
-        bool isLate = false;
-        if (isPresent) {
-            std::string t = presentTimes[s.rollNumber];
-            isLate = (t > "09:00:00");
-        }
-
-        QString statusText;
-        QColor statusColor;
-        if (isPresent && isLate) {
-            statusText = "Late";
-            statusColor = QColor(Theme::Warning);
-        } else if (isPresent) {
-            statusText = "Present";
-            statusColor = QColor(Theme::Success);
-        } else {
-            statusText = "Absent";
-            statusColor = QColor(Theme::Danger);
-        }
-
-        QTableWidgetItem *statusItem = new QTableWidgetItem(statusText);
-        statusItem->setForeground(statusColor);
-        statusItem->setFont(FontManager::buttonFont(14));
-        rosterTable->setItem(i, 2, statusItem);
-    }
-
+    rosterTable->setMinimumHeight(260);
     cardLayout->addWidget(rosterTable);
     mainLayout->addWidget(card);
 
+    // Attendance % card (per-subject only)
+    QFrame *percentCard = new QFrame();
+    percentCard->setObjectName("card");
+    QVBoxLayout *percentLayout = new QVBoxLayout(percentCard);
+    percentLayout->setContentsMargins(20,20,20,20);
+    percentLayout->setSpacing(20);
+
+    QLabel *percentTitle = new QLabel("Attendance % (select a subject to view)");
+    percentTitle->setFont(FontManager::headingFont(18));
+    percentTitle->setStyleSheet(QString("color:%1;").arg(Theme::Gold));
+    percentLayout->addWidget(percentTitle);
+
+    percentTable = new QTableWidget();
+    percentTable->setColumnCount(4);
+    percentTable->setHorizontalHeaderLabels({"Student Name", "Roll No", "Attendance %", "Status"});
+    percentTable->horizontalHeader()->setStretchLastSection(true);
+    percentTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    percentTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    percentTable->setSelectionMode(QAbstractItemView::NoSelection);
+    percentTable->verticalHeader()->hide();
+    percentTable->setMinimumHeight(220);
+    percentLayout->addWidget(percentTable);
+    mainLayout->addWidget(percentCard);
+
     setLayout(mainLayout);
+
+    // Populate subject filter
+    Database db(appDbPath());
+    db.initializeTables();
+    SubjectDAO subjectDAO(db.getConnection());
+    subjectCombo->addItem("All Subjects", -1);
+    for (auto &s : subjectDAO.getAllSubjects()) {
+        subjectCombo->addItem(
+            QString::fromStdString(s.subjectCode + " - " + s.subjectName), s.subjectId);
+    }
+}
+
+void AttendanceRecordsWindow::refreshView()
+{
+    Database db(appDbPath());
+    db.initializeTables();
+    AttendanceDAO attendanceDAO(db.getConnection());
+    SubjectDAO subjectDAO(db.getConnection());
+
+    int subjectId = subjectCombo->currentData().toInt();
+
+    QDate today = QDate::currentDate();
+    QDate startDate = today;
+    QString rangeName = rangeCombo->currentText();
+    if (rangeName == "This Week") {
+        startDate = today.addDays(-(today.dayOfWeek() - 1));
+    } else if (rangeName == "This Month") {
+        startDate = QDate(today.year(), today.month(), 1);
+    } else if (rangeName == "All Time") {
+        startDate = QDate(2000, 1, 1);
+    }
+
+    auto records = attendanceDAO.getDisplayRecords(
+        startDate.toString("yyyy-MM-dd").toStdString(),
+        today.toString("yyyy-MM-dd").toStdString(),
+        subjectId);
+
+    rosterTable->setRowCount(static_cast<int>(records.size()));
+    for (int i = 0; i < static_cast<int>(records.size()); ++i) {
+        auto &r = records[i];
+        rosterTable->setItem(i, 0, new QTableWidgetItem(QString::fromStdString(r.displayStudentName)));
+        rosterTable->setItem(i, 1, new QTableWidgetItem(QString::number(r.displayRollNumber)));
+        rosterTable->setItem(i, 2, new QTableWidgetItem(QString::fromStdString(r.displaySessionDate)));
+        rosterTable->setItem(i, 3, new QTableWidgetItem(
+            QString::fromStdString(r.displayAttendanceTime.substr(0, 5))));
+    }
+
+    rangeSummaryLabel->setText(
+        QString("Showing %1 record(s) from %2 to %3.")
+            .arg(records.size())
+            .arg(startDate.toString("MMM d, yyyy"))
+            .arg(today.toString("MMM d, yyyy")));
+
+    // Attendance % is only meaningful scoped to a single subject (it's computed
+    // against that subject's own scheduled sessions), so only populate it then.
+    percentTable->setRowCount(0);
+    if (subjectId < 0) {
+        return;
+    }
+
+    SubjectRecord subject = subjectDAO.getSubjectById(subjectId);
+    int minAttendance = (subject.subjectId >= 0) ? subject.subjectMinAttendance : 80;
+
+    auto percentages = attendanceDAO.getSubjectAttendancePercentage(subjectId);
+    percentTable->setRowCount(static_cast<int>(percentages.size()));
+    for (int i = 0; i < static_cast<int>(percentages.size()); ++i) {
+        auto &p = percentages[i];
+        percentTable->setItem(i, 0, new QTableWidgetItem(QString::fromStdString(p.percentageStudentName)));
+        percentTable->setItem(i, 1, new QTableWidgetItem(QString::number(p.percentageRollNumber)));
+
+        QTableWidgetItem *pctItem = new QTableWidgetItem(
+            QString::number(p.calculatedPercentage, 'f', 1) + "%");
+        percentTable->setItem(i, 2, pctItem);
+
+        bool belowThreshold = p.calculatedPercentage < minAttendance;
+        QTableWidgetItem *statusItem = new QTableWidgetItem(
+            belowThreshold ? QString("Below %1%% Minimum").arg(minAttendance) : "OK");
+        statusItem->setForeground(belowThreshold ? QColor(Theme::Danger) : QColor(Theme::Success));
+        statusItem->setFont(FontManager::buttonFont(13));
+        percentTable->setItem(i, 3, statusItem);
+    }
 }

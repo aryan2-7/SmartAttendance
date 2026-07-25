@@ -28,6 +28,7 @@ public:
     bool studentExists(int studentRollNumber);
     
     bool enrollStudent(int enrollmentStudentId, int enrollmentSubjectId);
+    bool unenrollStudent(int enrollmentStudentId, int enrollmentSubjectId);
     std::vector<EnrollmentRecord> getEnrollmentsForStudent(int studentId);
 
 private:
