@@ -2,7 +2,6 @@ name: Build and Release
 
 on:
   push:
-    branches: [main]
     tags:
       - "v*"
   workflow_dispatch:
@@ -23,36 +22,31 @@ jobs:
         id: cache-opencv
         uses: actions/cache@v4
         with:
-          path: opencv-install
+          path: $HOME/opencv-install
           key: opencv-5.0.0-macos-${{ runner.arch }}-noopenblas
 
-      - name: Build OpenCV from source (no OpenBLAS)
+      - name: Checkout OpenCV
+        if: steps.cache-opencv.outputs.cache-hit != 'true'
+        run: git clone --depth 1 https://github.com/opencv/opencv.git
+
+      - name: Build OpenCV
         if: steps.cache-opencv.outputs.cache-hit != 'true'
         run: |
-          brew install cmake ninja
-          git clone --depth 1 --branch 5.0.0 https://github.com/opencv/opencv.git
-          git clone --depth 1 --branch 5.0.0 https://github.com/opencv/opencv_contrib.git
-          cmake -G Ninja -B opencv-build -S opencv \
+          cmake -S opencv -B opencv-build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=$PWD/opencv-install \
+            -DCMAKE_INSTALL_PREFIX=$HOME/opencv-install \
             -DWITH_OPENBLAS=OFF \
             -DWITH_LAPACK=OFF \
-            -DWITH_IPP=OFF \
-            -DWITH_TBB=OFF \
-            -DWITH_EIGEN=OFF \
-            -DBUILD_SHARED_LIBS=ON \
-            -DBUILD_EXAMPLES=OFF \
             -DBUILD_TESTS=OFF \
-            -DBUILD_PERF_TESTS=OFF \
-            -DBUILD_opencv_world=OFF \
-            -DOPENCV_EXTRA_MODULES_PATH=$PWD/opencv_contrib/modules
-          cmake --build opencv-build --target install
+            -DBUILD_EXAMPLES=OFF
+          cmake --build opencv-build --parallel
+          cmake --install opencv-build
 
       - name: Configure SmartAttendance
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DPACKAGING=ON \
             -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6)" \
-            -DOpenCV_DIR=$PWD/opencv-install/lib/cmake/opencv4
+            -DOpenCV_DIR=$HOME/opencv-install/lib/cmake/opencv4
 
       - name: Build
         run: cmake --build build --config Release
