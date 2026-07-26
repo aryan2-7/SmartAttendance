@@ -122,3 +122,64 @@ string(REPLACE "\\" "/" NORMALIZED_SOURCE_DIR "${CMAKE_SOURCE_DIR}")
 target_compile_definitions(SmartAttendance PRIVATE
     PROJECT_SOURCE_DIR="${NORMALIZED_SOURCE_DIR}"
 )
+
+option(PACKAGING "Building for installer packaging" OFF)
+if(PACKAGING)
+    target_compile_definitions(SmartAttendance PRIVATE INSTALLED_BUILD)
+endif()
+
+if(APPLE)
+    set(BUNDLE_IDENTIFIER "edu.ku.smartattendance")
+    configure_file(
+        resources/Info.plist.in
+        "${CMAKE_CURRENT_BINARY_DIR}/Info.plist"
+        @ONLY
+    )
+    set_source_files_properties(
+        resources/SmartAttendance.icns
+        PROPERTIES MACOSX_PACKAGE_LOCATION "Resources"
+    )
+    target_sources(SmartAttendance PRIVATE resources/SmartAttendance.icns)
+    set_target_properties(SmartAttendance PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_ICON_FILE SmartAttendance.icns
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_BINARY_DIR}/Info.plist"
+    )
+endif()
+
+if(PACKAGING)
+    if(APPLE)
+        set_source_files_properties(
+            resources/models/face_detection_yunet_2023mar.onnx
+            resources/models/face_recognition_sface_2021dec.onnx
+            PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/models"
+        )
+        target_sources(SmartAttendance PRIVATE
+            resources/models/face_detection_yunet_2023mar.onnx
+            resources/models/face_recognition_sface_2021dec.onnx
+        )
+    elseif(WIN32)
+        install(FILES
+            resources/models/face_detection_yunet_2023mar.onnx
+            resources/models/face_recognition_sface_2021dec.onnx
+            DESTINATION resources/models
+        )
+    endif()
+endif()
+
+set(CPACK_PACKAGE_NAME "SmartAttendance")
+set(CPACK_PACKAGE_VENDOR "Kathmandu University - ENGG 102")
+set(CPACK_PACKAGE_VERSION "1.0.0")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Face Recognition Attendance System")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "SmartAttendance")
+
+if(APPLE)
+    set(CPACK_GENERATOR "DragNDrop")
+    set(CPACK_DMG_VOLUME_NAME "SmartAttendance")
+elseif(WIN32)
+    set(CPACK_GENERATOR "NSIS")
+    set(CPACK_NSIS_PACKAGE_NAME "SmartAttendance")
+    set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+endif()
+
+include(CPack)

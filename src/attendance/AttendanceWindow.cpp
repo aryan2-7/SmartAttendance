@@ -33,7 +33,7 @@ AttendanceWindow::AttendanceWindow(QWidget *parent) : QWidget(parent) {
     setAttribute(Qt::WA_DeleteOnClose);
     setupUI();
 
-    std::string modelDir = std::string(PROJECT_SOURCE_DIR) + "/resources/models/";
+    std::string modelDir = bundledResourcesDir().toStdString() + "/models/";
 
     detector_ = cv::FaceDetectorYN::create(
         modelDir + "face_detection_yunet_2023mar.onnx", "",
@@ -133,7 +133,7 @@ void AttendanceWindow::setupUI() {
 }
 
 bool AttendanceWindow::loadGallery() {
-    Database dbConn(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+    Database dbConn(appDbPath());
     dbConn.initializeTables();
     StudentDAO studentDAO(dbConn.getConnection());
     std::vector<StudentRecord> dbStudents = studentDAO.getAllStudents();
@@ -273,7 +273,7 @@ int AttendanceWindow::matchFace(const cv::Mat &feat) {
 }
 
 void AttendanceWindow::logAttendance(const GalleryStudent &s) {
-    Database dbConn(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+    Database dbConn(appDbPath());
     dbConn.initializeTables();
     AttendanceDAO attendanceDAO(dbConn.getConnection());
 

@@ -27,7 +27,7 @@
 
 ScheduleEditor::ScheduleEditor(QWidget *parent)
     : QWidget(parent), dbConn("") {
-    dbConn = Database(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+    dbConn = Database(appDbPath());
     dbConn.initializeTables();
 
     setupUI();

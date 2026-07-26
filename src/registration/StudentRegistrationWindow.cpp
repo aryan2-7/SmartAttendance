@@ -44,10 +44,10 @@ StudentRegistrationWindow::StudentRegistrationWindow(QWidget *parent)
         registerButton->setEnabled(false);
     }
 
-    std::string modelPath = std::string(PROJECT_SOURCE_DIR) + "/resources/models/face_detection_yunet_2023mar.onnx";
+    std::string modelPath = (bundledResourcesDir() + "/models/face_detection_yunet_2023mar.onnx").toStdString();
     detector_ = cv::FaceDetectorYN::create(modelPath, "", cv::Size(480, 270), 0.9f, 0.3f, 5000);
 
-    std::string livenessDir = std::string(PROJECT_SOURCE_DIR) + "/resources/models/";
+    std::string livenessDir = bundledResourcesDir().toStdString() + "/models/";
     if (!liveness_.loadModels(livenessDir)) {
         statusLabel->setText("Warning: Liveness models not loaded.");
     }
@@ -403,7 +403,7 @@ void StudentRegistrationWindow::onRegisterClicked() {
     }
 
     if (!recognizer_) {
-        std::string modelPath = std::string(PROJECT_SOURCE_DIR) + "/resources/models/face_recognition_sface_2021dec.onnx";
+        std::string modelPath = (bundledResourcesDir() + "/models/face_recognition_sface_2021dec.onnx").toStdString();
         recognizer_ = cv::FaceRecognizerSF::create(modelPath, "");
         if (!recognizer_) {
             QMessageBox::critical(this, "Error", "Failed to load SFace model.");
@@ -506,8 +506,7 @@ bool StudentRegistrationWindow::detectFace(const cv::Mat &frame, cv::Mat &faceBo
 }
 
 void StudentRegistrationWindow::saveEmbeddings(const QString &name, const QString &roll) {
-    QString modelsDir = QString::fromUtf8(PROJECT_SOURCE_DIR) + "/resources/trained_models/";
-    QDir().mkpath(modelsDir);
+    QString modelsDir = appTrainedModelsDir();
 
     QString safeName = name;
     safeName.replace(' ', '_');
