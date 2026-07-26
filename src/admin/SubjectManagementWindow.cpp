@@ -89,7 +89,8 @@ void SubjectManagementWindow::setupUI() {
     formLayout->addRow("Semester:", semesterSpin);
 
     deptCombo = new QComboBox();
-    deptCombo->addItems({"Computer Science", "Electrical", "Mechanical", "Civil", "Electronics", "Other"});
+    deptCombo->addItems({"Computer Engineering", "Electrical", "Mechanical", "Civil", "Electronics", "Other"});
+    deptCombo->setMinimumWidth(200);
     formLayout->addRow("Department:", deptCombo);
 
     minAttSpin = new QSpinBox();
@@ -142,6 +143,7 @@ void SubjectManagementWindow::setupUI() {
     searchEdit = new QLineEdit();
     searchEdit->setPlaceholderText("Search subjects...");
     searchEdit->setFixedHeight(45);
+    searchEdit->setMinimumWidth(300);
 
     searchLayout->addWidget(searchEdit);
 
@@ -227,7 +229,7 @@ void SubjectManagementWindow::setupStyles() {
             background:%5;
             border:1px solid %4;
             border-radius:10px;
-            padding:8px 12px;
+            padding:10px 16px;
             color:%2;
             min-height:20px;
         }
@@ -236,6 +238,21 @@ void SubjectManagementWindow::setupStyles() {
         QComboBox:focus,
         QSpinBox:focus {
             border:1px solid %6;
+        }
+
+        QComboBox QAbstractItemView {
+            background:%5;
+            border:1px solid %4;
+            border-radius:6px;
+            color:%2;
+            min-width:350px;
+            selection-background-color:%3;
+            selection-color:%2;
+            padding:4px;
+        }
+
+        QComboBox QAbstractItemView::item {
+            padding:6px 12px;
         }
 
         QPushButton {

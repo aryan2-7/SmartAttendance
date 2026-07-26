@@ -175,6 +175,7 @@ QHeaderView::section{
     QLineEdit *searchBox = new QLineEdit();
     searchBox->setPlaceholderText("Search Student...");
     searchBox->setFixedHeight(42);
+    searchBox->setMinimumWidth(300);
     searchBox->setStyleSheet(QString(R"(
 QLineEdit{
     background:%1;

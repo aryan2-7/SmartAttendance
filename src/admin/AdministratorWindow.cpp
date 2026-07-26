@@ -84,7 +84,7 @@ QPushButton:hover{
 
     // Login Card
     QFrame *card = new QFrame();
-    card->setFixedSize(420,430);
+    card->setFixedSize(460,450);
 
     card->setStyleSheet(QString(R"(
 QFrame{
@@ -136,7 +136,7 @@ QLineEdit{
     background:%1;
     border:1px solid %2;
     border-radius:10px;
-    padding:12px;
+    padding:12px 18px;
     color:%3;
 }
 QLineEdit:focus{

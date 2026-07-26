@@ -82,11 +82,24 @@ QLineEdit, QDateEdit, QComboBox{
     color:%4;
     border:1px solid %2;
     border-radius:10px;
-    padding:10px;
+    padding:10px 16px;
     font-size:14px;
 }
 QLineEdit:focus, QDateEdit:focus, QComboBox:focus{
     border:1px solid %7;
+}
+QComboBox QAbstractItemView{
+    background:%6;
+    border:1px solid %2;
+    border-radius:6px;
+    color:%4;
+    min-width:350px;
+    selection-background-color:%3;
+    selection-color:%4;
+    padding:4px;
+}
+QComboBox QAbstractItemView::item{
+    padding:6px 12px;
 }
 QLabel{
     border:none;
@@ -134,10 +147,11 @@ QLabel{
 
     QLabel *subjectLabel = new QLabel("Subject:");
     subjectCombo = new QComboBox();
-    subjectCombo->setMinimumWidth(240);
+    subjectCombo->setMinimumWidth(320);
 
     QLabel *rangeLabel = new QLabel("Range:");
     rangeCombo = new QComboBox();
+    rangeCombo->setMinimumWidth(160);
     rangeCombo->addItems({"Today", "This Week", "This Month", "All Time"});
 
     QPushButton *refreshButton = new QPushButton("Refresh");

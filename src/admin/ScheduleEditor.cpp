@@ -21,6 +21,7 @@
 #include <QMessageBox>
 #include <QFrame>
 #include <QAbstractItemView>
+#include <QScrollArea>
 #include <QDate>
 
 
@@ -47,14 +48,18 @@ ScheduleEditor::ScheduleEditor(QWidget *parent)
 
 void ScheduleEditor::setupUI() {
     setWindowTitle("Schedule Editor");
-    resize(1200, 750); // fallback size if shown without maximizing
+    resize(1200, 750);
 
-    // =========================
-    // Main Layout
-    // =========================
+    QVBoxLayout *outerLayout = new QVBoxLayout(this);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
 
-    QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(40, 30, 40, 30);
+    QScrollArea *scrollArea = new QScrollArea();
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+
+    QWidget *scrollContent = new QWidget();
+    QVBoxLayout *mainLayout = new QVBoxLayout(scrollContent);
+    mainLayout->setContentsMargins(40, 30, 40, 40);
     mainLayout->setSpacing(20);
 
     // =========================
@@ -86,6 +91,7 @@ void ScheduleEditor::setupUI() {
     QLabel *subjectLabel = new QLabel("Subject:");
 
     subjectCombo = new QComboBox();
+    subjectCombo->setMinimumWidth(350);
 
     connect(subjectCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ScheduleEditor::onSubjectSelected);
@@ -106,26 +112,32 @@ void ScheduleEditor::setupUI() {
     QFormLayout *formLayout = new QFormLayout(sessionGroup);
     formLayout->setContentsMargins(25, 25, 25, 25);
     formLayout->setSpacing(15);
+    formLayout->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
 
     dateEdit = new QDateEdit(QDate::currentDate());
     dateEdit->setCalendarPopup(true);
     dateEdit->setDisplayFormat("yyyy-MM-dd");
+    dateEdit->setMinimumWidth(220);
     formLayout->addRow("Date:", dateEdit);
 
     startTimeEdit = new QTimeEdit(QTime(8, 0));
     startTimeEdit->setDisplayFormat("HH:mm");
+    startTimeEdit->setMinimumWidth(220);
     formLayout->addRow("Start Time:", startTimeEdit);
 
     endTimeEdit = new QTimeEdit(QTime(9, 0));
     endTimeEdit->setDisplayFormat("HH:mm");
+    endTimeEdit->setMinimumWidth(220);
     formLayout->addRow("End Time:", endTimeEdit);
 
     roomEdit = new QLineEdit();
     roomEdit->setPlaceholderText("e.g. Lab 3, Room 201");
+    roomEdit->setMinimumWidth(300);
     formLayout->addRow("Room:", roomEdit);
 
     topicEdit = new QLineEdit();
     topicEdit->setPlaceholderText("e.g. Chapter 5: Vectors");
+    topicEdit->setMinimumWidth(300);
     formLayout->addRow("Topic:", topicEdit);
 
     mainLayout->addWidget(sessionGroup);
@@ -146,6 +158,7 @@ void ScheduleEditor::setupUI() {
     weeksSpin = new QSpinBox();
     weeksSpin->setRange(1, 16);
     weeksSpin->setValue(8);
+    weeksSpin->setMinimumWidth(80);
 
     addWeeklyBtn = new QPushButton("Generate Weekly Sessions");
     addWeeklyBtn->setFixedHeight(42);
@@ -207,8 +220,12 @@ void ScheduleEditor::setupUI() {
     sessionTable->verticalHeader()->setVisible(false);
     sessionTable->horizontalHeader()->setStretchLastSection(true);
     sessionTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    sessionTable->setMinimumHeight(300);
 
-    mainLayout->addWidget(sessionTable);
+    mainLayout->addWidget(sessionTable, 1);
+
+    scrollArea->setWidget(scrollContent);
+    outerLayout->addWidget(scrollArea);
 
     // =========================
     // Connections
@@ -260,7 +277,7 @@ void ScheduleEditor::setupStyles() {
             background:%5;
             border:1px solid %4;
             border-radius:10px;
-            padding:8px 12px;
+            padding:10px 16px;
             color:%2;
             min-height:20px;
         }
@@ -271,6 +288,38 @@ void ScheduleEditor::setupStyles() {
         QTimeEdit:focus,
         QSpinBox:focus {
             border:1px solid %6;
+        }
+
+        QComboBox QAbstractItemView {
+            background:%5;
+            border:1px solid %4;
+            border-radius:6px;
+            color:%2;
+            min-width:400px;
+            selection-background-color:%3;
+            selection-color:%2;
+            padding:4px;
+        }
+
+        QComboBox QAbstractItemView::item {
+            padding:6px 12px;
+        }
+
+        QScrollBar:vertical {
+            background:%5;
+            width:10px;
+            border-radius:5px;
+        }
+
+        QScrollBar::handle:vertical {
+            background:%4;
+            border-radius:5px;
+            min-height:30px;
+        }
+
+        QScrollBar::add-line:vertical,
+        QScrollBar::sub-line:vertical {
+            height:0px;
         }
 
         QPushButton {

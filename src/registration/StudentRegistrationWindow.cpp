@@ -184,9 +184,9 @@ QLabel{
     rollEdit = new QLineEdit();
 
     nameEdit->setPlaceholderText("Enter Student Name");
-    nameEdit->setMinimumWidth(280);
+    nameEdit->setMinimumWidth(320);
     rollEdit->setPlaceholderText("Enter Roll Number");
-    rollEdit->setMinimumWidth(280);
+    rollEdit->setMinimumWidth(320);
     rollEdit->setValidator(new QIntValidator(1, 99999, this));
 
     formLayout->addRow("Student Name", nameEdit);

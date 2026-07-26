@@ -9,9 +9,12 @@
 #include <QPageSize>
 #include <QPageLayout>
 #include <QFont>
+#include <QFontMetrics>
 #include <QString>
 #include <QDateTime>
 #include <QColor>
+#include <QMarginsF>
+#include <QRect>
 
 namespace {
 
@@ -22,19 +25,48 @@ constexpr int kHeaderRowHeight = 28;
 constexpr int kTitleGap = 20;
 constexpr int kSectionGap = 30;
 
-// Column layout for the student table, as fractions of the usable width.
+// Column layout for the student table.
 struct ColumnLayout {
-    int rollX, nameX, pctX, statusX, endX;
+    QRect rollCol, nameCol, pctCol, statusCol;
+    int endX;
 };
 
-ColumnLayout computeColumns(int usableLeft, int usableWidth) {
+ColumnLayout computeColumns(int usableLeft, int usableWidth, int rowHeight) {
     ColumnLayout c;
-    c.rollX = usableLeft;
-    c.nameX = usableLeft + static_cast<int>(usableWidth * 0.15);
-    c.pctX = usableLeft + static_cast<int>(usableWidth * 0.65);
-    c.statusX = usableLeft + static_cast<int>(usableWidth * 0.80);
-    c.endX = usableLeft + usableWidth;
+
+    // Give Attendance % enough room so the header is not clipped.
+    // The exact ratios are a bit more balanced than before.
+    int rollW   = static_cast<int>(usableWidth * 0.12);
+    int nameW   = static_cast<int>(usableWidth * 0.42);
+    int pctW    = static_cast<int>(usableWidth * 0.24);
+    int statusW = usableWidth - rollW - nameW - pctW;
+
+    int rollX = usableLeft;
+    int nameX = rollX + rollW;
+    int pctX = nameX + nameW;
+    int statusX = pctX + pctW;
+    int endX = usableLeft + usableWidth;
+
+    c.rollCol = QRect(rollX, 0, rollW, rowHeight);
+    c.nameCol = QRect(nameX, 0, nameW, rowHeight);
+    c.pctCol = QRect(pctX, 0, pctW, rowHeight);
+    c.statusCol = QRect(statusX, 0, statusW, rowHeight);
+    c.endX = endX;
     return c;
+}
+
+// Draws text within a column rect at the given y, with a small inset and
+// safe eliding so content never bleeds into the next column.
+void drawInColumn(QPainter &painter, const QRect &col, int y, int rowHeight,
+                  const QString &text, Qt::Alignment align) {
+    QRect rect(col.x() + 4, y, col.width() - 8, rowHeight);
+
+    QFontMetrics fm(painter.font());
+    QString clipped = fm.elidedText(text, Qt::ElideRight, rect.width());
+
+    painter.drawText(rect,
+                     static_cast<int>(align) | Qt::AlignVCenter | Qt::TextSingleLine,
+                     clipped);
 }
 
 void drawTableHeader(QPainter &painter, int &y, const ColumnLayout &cols, int usableLeft, int usableWidth) {
@@ -43,11 +75,12 @@ void drawTableHeader(QPainter &painter, int &y, const ColumnLayout &cols, int us
     headerFont.setPointSize(10);
     painter.setFont(headerFont);
     painter.fillRect(usableLeft, y, usableWidth, kHeaderRowHeight, QColor("#EEEEEE"));
-    painter.drawText(cols.rollX + 4, y + kHeaderRowHeight - 8, "Roll No");
-    painter.drawText(cols.nameX + 4, y + kHeaderRowHeight - 8, "Student Name");
-    painter.drawText(cols.pctX + 4, y + kHeaderRowHeight - 8, "Attendance %");
-    painter.drawText(cols.statusX + 4, y + kHeaderRowHeight - 8, "Status");
+    drawInColumn(painter, cols.rollCol, y, kHeaderRowHeight, "Roll No", Qt::AlignLeft);
+    drawInColumn(painter, cols.nameCol, y, kHeaderRowHeight, "Student Name", Qt::AlignLeft);
+    drawInColumn(painter, cols.pctCol, y, kHeaderRowHeight, "Attendance %", Qt::AlignHCenter);
+    drawInColumn(painter, cols.statusCol, y, kHeaderRowHeight, "Status", Qt::AlignLeft);
     y += kHeaderRowHeight;
+
     QFont bodyFont = painter.font();
     bodyFont.setBold(false);
     bodyFont.setPointSize(10);
@@ -77,7 +110,7 @@ bool AttendanceReportExporter::exportPdf(const std::string& outputPath) {
     int usableWidth = pageRect.width();
     int pageBottom = pageRect.height();
 
-    ColumnLayout cols = computeColumns(usableLeft, usableWidth);
+    ColumnLayout cols = computeColumns(usableLeft, usableWidth, kRowHeight);
 
     // Report title / generated-on timestamp.
     QFont titleFont = painter.font();
@@ -111,8 +144,7 @@ bool AttendanceReportExporter::exportPdf(const std::string& outputPath) {
     for (size_t si = 0; si < subjects.size(); ++si) {
         const auto &subject = subjects[si];
 
-        // Start a new page for each course after the first, so each course's
-        // list is self-contained and easy to hand out separately if needed.
+        // Start a new page for each course after the first.
         if (si > 0) {
             writer.newPage();
             y = 0;
@@ -160,13 +192,16 @@ bool AttendanceReportExporter::exportPdf(const std::string& outputPath) {
 
             bool belowThreshold = p.calculatedPercentage < subject.subjectMinAttendance;
 
-            painter.drawText(cols.rollX + 4, y + kRowHeight - 7, QString::number(p.percentageRollNumber));
-            painter.drawText(cols.nameX + 4, y + kRowHeight - 7, QString::fromStdString(p.percentageStudentName));
-            painter.drawText(cols.pctX + 4, y + kRowHeight - 7, QString::number(p.calculatedPercentage, 'f', 1) + "%");
+            drawInColumn(painter, cols.rollCol, y, kRowHeight,
+                QString::number(p.percentageRollNumber), Qt::AlignLeft);
+            drawInColumn(painter, cols.nameCol, y, kRowHeight,
+                QString::fromStdString(p.percentageStudentName), Qt::AlignLeft);
+            drawInColumn(painter, cols.pctCol, y, kRowHeight,
+                QString::number(p.calculatedPercentage, 'f', 1) + "%", Qt::AlignRight);
 
             painter.setPen(belowThreshold ? QColor("#B85C5C") : QColor("#5F8F55"));
-            painter.drawText(cols.statusX + 4, y + kRowHeight - 7,
-                belowThreshold ? "Below Min." : "OK");
+            drawInColumn(painter, cols.statusCol, y, kRowHeight,
+                belowThreshold ? "Below Min." : "OK", Qt::AlignLeft);
             painter.setPen(QColor("#000000"));
 
             painter.setPen(QColor("#DDDDDD"));
