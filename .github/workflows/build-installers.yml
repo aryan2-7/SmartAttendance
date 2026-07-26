@@ -46,20 +46,22 @@ jobs:
           version: '6.7.0'
       - name: Install OpenCV
         run: choco install opencv -y
+      - name: Install WiX (for MSI packaging)
+        run: choco install wixtoolset -y
       - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DPACKAGING=ON
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DPACKAGING=ON -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}"
       - name: Build
         run: cmake --build build --config Release
       - name: Deploy Qt DLLs
-        run: windeployqt build/Release/SmartAttendance.exe
-      - name: Package
+        run: windeployqt build\Release\SmartAttendance.exe
+      - name: Package MSI
         working-directory: build
-        run: cpack -C Release
+        run: cpack -G WIX -C Release
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: SmartAttendance-Windows
-          path: build/*.exe
+          path: build/*.msi
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -77,5 +79,5 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/macos/*
-            artifacts/windows/*
+            artifacts/macos/*.dmg
+            artifacts/windows/*.msi
