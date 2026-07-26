@@ -1,3 +1,5 @@
+//src/attendance/AttendanceWindow.cpp
+
 #include "AttendanceWindow.h"
 #include "../auth/FontManager.h"
 #include "../auth/WelcomeWindow.h"
@@ -38,6 +40,10 @@ AttendanceWindow::AttendanceWindow(QWidget *parent) : QWidget(parent) {
         cv::Size(640, 360), 0.9f, 0.3f, 5000);
     recognizer_ = cv::FaceRecognizerSF::create(
         modelDir + "face_recognition_sface_2021dec.onnx", "");
+
+    if (!liveness_.loadModels(modelDir)) {
+        statusLabel->setText("Warning: Liveness models not loaded.");
+    }
 
     if (!loadGallery()) {
         statusLabel->setText("No students registered yet.");
@@ -165,6 +171,8 @@ void AttendanceWindow::onFrameTimer() {
     cv::flip(frame, frame, 1);
 
     cv::Mat faceBox;
+    bool matched = false;
+
     if (detector_ && recognizer_ && detectBestFace(frame, faceBox)) {
         int x = static_cast<int>(faceBox.at<float>(0, 0));
         int y = static_cast<int>(faceBox.at<float>(0, 1));
@@ -172,35 +180,64 @@ void AttendanceWindow::onFrameTimer() {
         int h = static_cast<int>(faceBox.at<float>(0, 3));
         cv::rectangle(frame, {x, y}, {x + w, y + h}, {0, 255, 0}, 2);
 
-        cv::Mat aligned, feat;
-        recognizer_->alignCrop(frame, faceBox, aligned);
-        recognizer_->feature(aligned, feat);
+        if (!livenessPassed_) {
+            LivenessStatus ls = liveness_.process(frame, faceBox);
+            statusLabel->setText(
+                QString::fromStdString(liveness_.statusMessage()));
 
-        int matchIdx = matchFace(feat);
-        if (matchIdx >= 0) {
-            auto &s = students_[matchIdx];
+            if (ls == LivenessStatus::Failed || ls == LivenessStatus::Timeout) {
+                liveness_.reset();
+                livenessPassed_ = false;
+            } else if (ls == LivenessStatus::Verified) {
+                livenessPassed_ = true;
+            }
+        }
 
-            auto now = std::chrono::steady_clock::now();
-            if (lastLogged_.count(s.studentId)) {
-                auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
-                    now - lastLogged_[s.studentId]).count();
-                if (elapsed < COOLDOWN_SECONDS) {
+        if (livenessPassed_) {
+            livenessGraceFrames_ = 0;
+
+            cv::Mat aligned, feat;
+            recognizer_->alignCrop(frame, faceBox, aligned);
+            recognizer_->feature(aligned, feat);
+
+            int matchIdx = matchFace(feat);
+            if (matchIdx >= 0) {
+                auto &s = students_[matchIdx];
+
+                auto now = std::chrono::steady_clock::now();
+                bool canLog = true;
+                if (lastLogged_.count(s.studentId)) {
+                    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                        now - lastLogged_[s.studentId]).count();
+                    if (elapsed < COOLDOWN_SECONDS) canLog = false;
+                }
+
+                if (canLog) {
+                    logAttendance(s);
+                    lastLogged_[s.studentId] = now;
+                } else {
                     statusLabel->setText(
                         QString::fromStdString(s.name + " - already logged recently."));
-                    goto display_frame;
                 }
+                matched = true;
+            } else {
+                statusLabel->setText("Unknown Face");
             }
-
-            logAttendance(s);
-            lastLogged_[s.studentId] = now;
-        } else {
-            statusLabel->setText("Unknown Face");
         }
     } else {
-        statusLabel->setText("No face detected.");
+        if (livenessPassed_) {
+            livenessGraceFrames_++;
+            if (livenessGraceFrames_ > 30) {
+                livenessPassed_ = false;
+                liveness_.reset();
+                livenessGraceFrames_ = 0;
+            }
+        }
+        if (!matched) {
+            statusLabel->setText("No face detected.");
+        }
     }
 
-display_frame:
     cv::Mat displayFrame;
     cv::resize(frame, displayFrame, cv::Size(640, 360));
     cameraIcon->setPixmap(matToPixmap(displayFrame));

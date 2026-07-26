@@ -1,3 +1,5 @@
+//src/registration/StudentRegistrationWindow.h
+
 #pragma once
 
 #include <QWidget>
@@ -10,6 +12,7 @@ class QLabel;
 class QLineEdit;
 class QPushButton;
 
+#include "../liveness/LivenessDetector.h"
 
 class StudentRegistrationWindow : public QWidget
 {
@@ -41,7 +44,10 @@ private:
     cv::Ptr<cv::FaceRecognizerSF> recognizer_;
 
     bool capturing_ = false;
+    bool livenessPassed_ = false;
     int sampleCount_ = 0;
     static constexpr int SAMPLES = 50;
     std::vector<cv::Mat> embeddings_;
+
+    LivenessDetector liveness_;
 };

@@ -10,6 +10,7 @@
 #include <vector>
 #include <map>
 #include <chrono>
+#include "../liveness/LivenessDetector.h"
 
 struct GalleryStudent {
     int         studentId;
@@ -47,6 +48,10 @@ private:
     std::map<int, std::chrono::steady_clock::time_point> lastLogged_;
     static constexpr double COSINE_THRESHOLD = 0.363;
     static constexpr int    COOLDOWN_SECONDS = 300;
+
+    LivenessDetector liveness_;
+    bool livenessPassed_ = false;
+    int livenessGraceFrames_ = 0;
 };
 
 

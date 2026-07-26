@@ -40,30 +40,23 @@ endif()
 
 set(SOURCES
     src/main.cpp
-
     # Module 1 – Login
     src/auth/WelcomeWindow.cpp
     src/auth/FontManager.cpp
-
     # Module 2 – Face Registration
     src/registration/StudentRegistrationWindow.cpp
-
     # Module 3 – Attendance Marking
     src/attendance/AttendanceWindow.cpp
-
     # Module 4 – Records Viewer
     #src/records/RecordsViewer.cpp
-
     # Module 5 – CSV Export
     #src/export/CsvExporter.cpp
-
     # Shared – Database layer (new DAO architecture)
     src/db/Database.cpp
     src/db/StudentDAO.cpp
     src/db/SubjectDAO.cpp
     src/db/AttendanceDAO.cpp
     src/db/UserDAO.cpp
-
     # Module 6 – Administrator / Dashboard
     src/admin/AdministratorWindow.cpp
     src/admin/AdminDashboard.cpp
@@ -72,9 +65,8 @@ set(SOURCES
     src/admin/CircularProgress.cpp
     src/admin/SubjectManagementWindow.cpp
     src/admin/ScheduleEditor.cpp
-
-
-
+    # Module 7 – Liveness Detection
+    src/liveness/LivenessDetector.cpp
     ${SQLITE_SOURCES}
 )
 
@@ -89,6 +81,7 @@ add_executable(SmartAttendance
     src/admin/ManageStudentsWindow.h
     src/admin/AttendanceRecordsWindow.h
     src/admin/CircularProgress.h
+    src/liveness/LivenessDetector.h
     src/admin/ScheduleEditor.h
     src/admin/SubjectManagementWindow.h
     src/db/Database.h
@@ -111,6 +104,7 @@ target_include_directories(SmartAttendance PRIVATE
     src/attendance
     src/db
     src/admin
+    src/liveness
     src/theme
 )
 
