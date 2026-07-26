@@ -4,7 +4,8 @@ on:
   push:
     branches: [main, integration]
     tags:
-      - 'v*'
+      - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,77 +15,85 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Install dependencies
         run: brew install qt@6 opencv
+
       - name: Configure
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DPACKAGING=ON \
             -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6)"
+
       - name: Build
         run: cmake --build build --config Release
+
       - name: Deploy Qt and package DMG
         run: |
-          $(brew --prefix qt@6)/bin/macdeployqt build/SmartAttendance.app -no-strip
+          "$(brew --prefix qt@6)/bin/macdeployqt" build/SmartAttendance.app -no-strip
           codesign --deep --force --sign - build/SmartAttendance.app
           mkdir -p dmg_staging
           cp -R build/SmartAttendance.app dmg_staging/
           ln -s /Applications dmg_staging/Applications
-          hdiutil create -volname SmartAttendance -srcfolder dmg_staging -ov -format UDZO -imagekey zlib-level=9 build/SmartAttendance.dmg
-      - name: Upload artifact
+          hdiutil create -volname SmartAttendance \
+            -srcfolder dmg_staging \
+            -ov -format UDZO \
+            -imagekey zlib-level=9 \
+            build/SmartAttendance.dmg
+
+      - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SmartAttendance-macOS
+          name: SmartAttendance-dmg
           path: build/SmartAttendance.dmg
 
   build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.7.0'
+          version: "6.7.0"
+
       - name: Install OpenCV
-        run: choco install opencv -y
-      - name: Install WiX (for MSI packaging)
-        run: choco install wixtoolset -y
-      - name: Locate OpenCV CMake config
         shell: pwsh
-        id: find-opencv
+        run: choco install opencv -y
+
+      - name: Locate OpenCV config
+        shell: pwsh
         run: |
-          $paths = @(
-            "C:\tools\opencv\build",
-            "C:\ProgramData\chocolatey\lib\opencv\tools\opencv\build",
-            "C:\Program Files\OpenCV\build"
-          )
-          foreach ($p in $paths) {
-            $cfg = Join-Path $p "OpenCVConfig.cmake"
-            if (Test-Path $cfg) {
-              Write-Output "OPENCV_DIR=$p"
-              echo "OPENCV_DIR=$p" >> $env:GITHUB_ENV
-              exit 0
-            }
-          }
-          Get-ChildItem C:\ -Recurse -Filter OpenCVConfig.cmake -ErrorAction SilentlyContinue |
-            Select-Object -ExpandProperty FullName -First 1 |
-            ForEach-Object {
-              $dir = Split-Path $_ -Parent
-              Write-Output "OPENCV_DIR=$dir"
-              echo "OPENCV_DIR=$dir" >> $env:GITHUB_ENV
-            }
+          Get-ChildItem C:\tools -Recurse -Filter OpenCVConfig.cmake |
+            Select-Object -ExpandProperty FullName
+
       - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DPACKAGING=ON -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}" -DOpenCV_DIR="${{ env.OPENCV_DIR }}"
+        shell: pwsh
+        run: |
+          $opencvConfig = Get-ChildItem C:\tools -Recurse -Filter OpenCVConfig.cmake |
+            Select-Object -First 1 -ExpandProperty DirectoryName
+
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DPACKAGING=ON `
+            -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR" `
+            -DOpenCV_DIR="$opencvConfig"
+
       - name: Build
+        shell: pwsh
         run: cmake --build build --config Release
+
       - name: Deploy Qt DLLs
-        run: windeployqt build\Release\SmartAttendance.exe
+        shell: pwsh
+        run: |
+          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" build\Release\SmartAttendance.exe
+
       - name: Package MSI
+        shell: pwsh
         working-directory: build
         run: cpack -G WIX -C Release
-      - name: Upload artifact
+
+      - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SmartAttendance-Windows
+          name: SmartAttendance-msi
           path: build/*.msi
 
   release:
@@ -92,16 +101,21 @@ jobs:
     needs: [build-macos, build-windows]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
         with:
-          name: SmartAttendance-macOS
-          path: artifacts/macos
-      - uses: actions/download-artifact@v4
+          name: SmartAttendance-dmg
+          path: release-assets/macos
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
         with:
-          name: SmartAttendance-Windows
-          path: artifacts/windows
-      - uses: softprops/action-gh-release@v2
+          name: SmartAttendance-msi
+          path: release-assets/windows
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/macos/*.dmg
-            artifacts/windows/*.msi
+            release-assets/macos/*.dmg
+            release-assets/windows/*.msi
