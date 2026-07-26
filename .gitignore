@@ -29,3 +29,4 @@ resources/trained_models/
 docs/AI_AGENT_GUIDE.md
 .opencode/
 *.patch
+build_pkg/

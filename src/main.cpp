@@ -15,6 +15,9 @@ int main(int argc, char *argv[]) {
 
     QApplication a(argc, argv);
 
+    QCoreApplication::setOrganizationName("KathmanduUniversity");
+    QCoreApplication::setApplicationName("SmartAttendance");
+
     a.setFont(FontManager::appFont(12));
 
     WelcomeWindow w;
