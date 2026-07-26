@@ -19,6 +19,7 @@ struct AttendanceDisplayRecord {
     std::string displaySessionDate;
     std::string displayAttendanceTime;
     std::string displayAttendanceStatus;
+    std::string displaySessionStartTime; // scheduled start time (HH:MM:SS) of the session, used for late calc
 };
 
 struct SubjectAttendancePercentage {
@@ -27,6 +28,15 @@ struct SubjectAttendancePercentage {
     int percentageRollNumber;
     double calculatedPercentage;
 };
+
+// A student is considered "late" if they check in more than this many
+// minutes after the session's scheduled start time.
+inline constexpr int LATE_THRESHOLD_MINUTES = 10;
+
+// Returns true if attendanceTime ("HH:MM:SS") is more than
+// LATE_THRESHOLD_MINUTES after sessionStartTime ("HH:MM:SS").
+// Falls back to false if either time string can't be parsed.
+bool isLateArrival(const std::string& attendanceTime, const std::string& sessionStartTime);
 
 class AttendanceDAO {
 public:
@@ -42,6 +52,11 @@ public:
         const std::string& startDate, const std::string& endDate, int subjectId = -1);
 
     std::vector<SubjectAttendancePercentage> getSubjectAttendancePercentage(int subjectId);
+
+    // Counts distinct students whose computed attendance % is below their
+    // subject's configured minimum, across ALL subjects. Used for the
+    // dashboard "below minimum" alert banner.
+    int countStudentsBelowMinimumAttendance();
 
     // Returns the sessionId of the class session happening right now, or -1 if none.
     int findCurrentSession();

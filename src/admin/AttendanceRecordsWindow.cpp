@@ -35,7 +35,7 @@ AttendanceRecordsWindow::AttendanceRecordsWindow(QWidget *parent)
 void AttendanceRecordsWindow::setupUI()
 {
     setWindowTitle("Attendance Records");
-    resize(1400,850);
+    resize(1400,850); // fallback size if shown without maximizing
     setObjectName("AttendanceRecordsWindow");
 
     setStyleSheet(QString(R"(
@@ -113,7 +113,7 @@ QLabel{
     connect(backButton, &QPushButton::clicked, this, [this]()
             {
                 auto *window = new AdminDashboard();
-                window->show();
+                window->showMaximized();
                 this->close();
             });
     backButton->setFixedSize(100,40);
@@ -204,6 +204,8 @@ QLabel{
     percentTable->setHorizontalHeaderLabels({"Student Name", "Roll No", "Attendance %", "Status"});
     percentTable->horizontalHeader()->setStretchLastSection(true);
     percentTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    percentTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    percentTable->setColumnWidth(2, 140);
     percentTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     percentTable->setSelectionMode(QAbstractItemView::NoSelection);
     percentTable->verticalHeader()->hide();
@@ -279,18 +281,31 @@ void AttendanceRecordsWindow::refreshView()
     percentTable->setRowCount(static_cast<int>(percentages.size()));
     for (int i = 0; i < static_cast<int>(percentages.size()); ++i) {
         auto &p = percentages[i];
-        percentTable->setItem(i, 0, new QTableWidgetItem(QString::fromStdString(p.percentageStudentName)));
-        percentTable->setItem(i, 1, new QTableWidgetItem(QString::number(p.percentageRollNumber)));
+        bool belowThreshold = p.calculatedPercentage < minAttendance;
 
+        QTableWidgetItem *nameItem = new QTableWidgetItem(QString::fromStdString(p.percentageStudentName));
+        QTableWidgetItem *rollItem = new QTableWidgetItem(QString::number(p.percentageRollNumber));
         QTableWidgetItem *pctItem = new QTableWidgetItem(
             QString::number(p.calculatedPercentage, 'f', 1) + "%");
-        percentTable->setItem(i, 2, pctItem);
-
-        bool belowThreshold = p.calculatedPercentage < minAttendance;
         QTableWidgetItem *statusItem = new QTableWidgetItem(
             belowThreshold ? QString("Below %1%% Minimum").arg(minAttendance) : "OK");
         statusItem->setForeground(belowThreshold ? QColor(Theme::Danger) : QColor(Theme::Success));
         statusItem->setFont(FontManager::buttonFont(13));
+
+        if (belowThreshold) {
+            // Faint red row shading (alerts feature) so at-risk students are
+            // visible at a glance, not just via the Status column text.
+            QColor rowShade(Theme::Danger);
+            rowShade.setAlpha(40);
+            nameItem->setBackground(rowShade);
+            rollItem->setBackground(rowShade);
+            pctItem->setBackground(rowShade);
+            statusItem->setBackground(rowShade);
+        }
+
+        percentTable->setItem(i, 0, nameItem);
+        percentTable->setItem(i, 1, rollItem);
+        percentTable->setItem(i, 2, pctItem);
         percentTable->setItem(i, 3, statusItem);
     }
 }

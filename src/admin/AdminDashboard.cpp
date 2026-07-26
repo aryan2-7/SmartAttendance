@@ -9,6 +9,7 @@
 #include "../db/StudentDAO.h"
 #include "../db/AttendanceDAO.h"
 #include "../db/DbPath.h"
+#include "../attendance/export/AttendanceReportExporter.h"
 #include "SubjectManagementWindow.h"
 #include "ScheduleEditor.h"
 
@@ -24,7 +25,6 @@
 #include <QSizePolicy>
 #include <QFileDialog>
 #include <QMessageBox>
-#include <fstream>
 #include <algorithm>
 
 
@@ -53,12 +53,24 @@ void AdminDashboard::refreshDashboard()
     int todayCount = static_cast<int>(records.size());
     int lateTally = 0;
     for (auto &r : records) {
-        if (r.displayAttendanceTime > "09:00:00") ++lateTally;
+        if (isLateArrival(r.displayAttendanceTime, r.displaySessionStartTime)) ++lateTally;
     }
 
     int attendancePct = (totalStudents > 0)
         ? (todayCount * 100) / totalStudents
         : 0;
+
+    // Below-minimum-attendance alert banner.
+    int belowMinCount = attendanceDAO.countStudentsBelowMinimumAttendance();
+    if (belowMinCount > 0) {
+        alertBanner->setText(
+            QString("\u26A0\uFE0F %1 student%2 below minimum attendance")
+                .arg(belowMinCount)
+                .arg(belowMinCount == 1 ? "" : "s"));
+        alertBanner->setVisible(true);
+    } else {
+        alertBanner->setVisible(false);
+    }
 
     if (totalStudents > 0) {
         progressCircle->setPercentage(attendancePct);
@@ -110,7 +122,7 @@ void AdminDashboard::refreshDashboard()
         name->setFont(FontManager::buttonFont(14));
         name->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
 
-        bool isLate = (r.displayAttendanceTime > "09:00:00");
+        bool isLate = isLateArrival(r.displayAttendanceTime, r.displaySessionStartTime);
         QString statusText = isLate ? "Late" : "Present";
         QString statusColor = isLate ? Theme::Warning : Theme::Success;
 
@@ -145,7 +157,7 @@ void AdminDashboard::refreshDashboard()
 void AdminDashboard::setupUI()
 {
     setWindowTitle("Admin Dashboard");
-    resize(1400,850);
+    resize(1400,850); // fallback size if shown without maximizing
     setMinimumSize(1300, 800);
     setObjectName("AdminDashboard");
 
@@ -199,7 +211,7 @@ QPushButton:hover{
     connect(backButton, &QPushButton::clicked, this, [this]()
             {
                 auto *window = new AdministratorWindow();
-                window->show();
+                window->showMaximized();
                 this->close();
             });
     backButton->setFixedSize(105,38);
@@ -223,6 +235,15 @@ QPushButton:hover{
     header->addStretch();
 
     mainLayout->addLayout(header);
+
+    // Below-minimum-attendance alert banner (hidden until refreshDashboard()
+    // finds at least one student below their subject's threshold).
+    alertBanner = new QLabel();
+    alertBanner->setStyleSheet(
+        QString("background:%1; color:%2; border-radius:12px; padding:12px 20px; font-size:14px; font-weight:bold;")
+            .arg(Theme::Card).arg(Theme::Warning));
+    alertBanner->setVisible(false);
+    mainLayout->addWidget(alertBanner);
 
     // Dashboard Row
     QHBoxLayout *topCards = new QHBoxLayout();
@@ -476,7 +497,7 @@ QLabel{
     QPushButton *manageButton = new QPushButton("Open");
     connect(manageButton, &QPushButton::clicked, this, [this]() {
         auto *window = new ManageStudentsWindow();
-        window->show();
+        window->showMaximized();
         this->close();
     });
     manageButton->setMinimumHeight(20);
@@ -553,7 +574,7 @@ QLabel{
     QPushButton *recordButton = new QPushButton("Open");
     connect(recordButton, &QPushButton::clicked, this, [this]() {
         auto *window = new AttendanceRecordsWindow();
-        window->show();
+        window->showMaximized();
         this->close();
     });
     recordButton->setMinimumHeight(20);
@@ -621,7 +642,7 @@ QLabel{
     exportTitle->setFont(FontManager::headingFont(16));
     exportTitle->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
 
-    QLabel *exportDesc = new QLabel("Export attendance reports as CSV.");
+    QLabel *exportDesc = new QLabel("Export a per-course attendance % report as PDF.");
     exportDesc->setAlignment(Qt::AlignCenter);
     exportDesc->setWordWrap(true);
     exportDesc->setStyleSheet(
@@ -647,29 +668,19 @@ QPushButton:hover{
 
     connect(exportButton, &QPushButton::clicked, this, [this]() {
         QString filePath = QFileDialog::getSaveFileName(
-            this, "Export Attendance CSV", "attendance_export.csv", "CSV Files (*.csv)");
+            this, "Export Attendance Report", "attendance_report.pdf", "PDF Files (*.pdf)");
         if (filePath.isEmpty()) return;
+        if (!filePath.endsWith(".pdf", Qt::CaseInsensitive)) filePath += ".pdf";
 
-        Database db(appDbPath());
-        db.initializeTables();
-        AttendanceDAO attendanceDAO(db.getConnection());
-        // Wide date range: every session ever recorded through today.
-        auto records = attendanceDAO.getDisplayRecords(
-            "0000-01-01", QDate::currentDate().toString("yyyy-MM-dd").toStdString());
+        bool ok = AttendanceReportExporter::exportPdf(filePath.toStdString());
 
-        std::ofstream csv(filePath.toStdString());
-        csv << "Student Name,Roll No,Date,Time,Status\n";
-        for (auto &r : records) {
-            csv << r.displayStudentName << ","
-                << r.displayRollNumber << ","
-                << r.displaySessionDate << ","
-                << r.displayAttendanceTime << ","
-                << r.displayAttendanceStatus << "\n";
+        if (ok) {
+            QMessageBox::information(this, "Export Complete",
+                                     "Attendance report exported to:\n" + filePath);
+        } else {
+            QMessageBox::critical(this, "Export Failed",
+                                  "Could not write the PDF report to:\n" + filePath);
         }
-        csv.close();
-
-        QMessageBox::information(this, "Export Complete",
-                                 "Attendance data exported to:\n" + filePath);
     });
 
     exportLayout->addWidget(exportIcon);
@@ -772,7 +783,7 @@ QPushButton:hover{
 
         auto *window = new SubjectManagementWindow();
 
-        window->show();
+        window->showMaximized();
 
         this->close();
     });
@@ -892,7 +903,7 @@ QPushButton:hover{
     connect(scheduleButton, &QPushButton::clicked, this, [this]() {
 
         auto *window = new ScheduleEditor();
-        window->show();
+        window->showMaximized();
 
         this->close();
 

@@ -65,7 +65,7 @@ StudentRegistrationWindow::~StudentRegistrationWindow() {
 void StudentRegistrationWindow::setupUI()
 {
     setWindowTitle("Student Registration");
-    resize(1400, 850);
+    resize(1400, 850); // fallback size if shown without maximizing
     setMinimumSize(1300, 800);
     setObjectName("StudentRegistrationWindow");
 
@@ -90,7 +90,7 @@ QWidget#StudentRegistrationWindow{
             {
                 if (cap_.isOpened()) cap_.release();
                 auto *window = new WelcomeWindow();
-                window->show();
+                window->showMaximized();
                 this->close();
             });
     backButton->setFixedSize(110,40);
@@ -251,7 +251,7 @@ QPushButton:disabled{
                     cap_.release();
 
                 auto *window = new WelcomeWindow();
-                window->show();
+                window->showMaximized();
 
                 this->close();
             });
@@ -289,7 +289,7 @@ QPushButton:disabled{
                     cap_.release();
 
                 auto *window = new WelcomeWindow();
-                window->show();
+                window->showMaximized();
                 this->close();
             });
 

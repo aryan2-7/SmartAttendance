@@ -24,5 +24,6 @@ private:
     QLabel *presentCount;
     QLabel *lateCount;
     QLabel *absentCount;
+    QLabel *alertBanner;
     QFrame *recentCard;
 };

@@ -35,7 +35,7 @@ void WelcomeWindow::setupUI()
 
     setWindowTitle("Smart Face Recognition Attendance System");
 
-    resize(1500,900);
+    resize(1500,900); // fallback size if shown without maximizing
 
     setMinimumSize(1300,850);
 
@@ -484,21 +484,21 @@ QPushButton:hover{
     connect(studentButton, &QPushButton::clicked, this, [this]()
             {
                 auto *window = new StudentRegistrationWindow();
-                window->show();
+                window->showMaximized();
                 this->close();
             });
 
     connect(attendanceButton, &QPushButton::clicked, this, [this]()
             {
                 auto *window = new AttendanceWindow();
-                window->show();
+                window->showMaximized();
                 this->close();
             });
 
     connect(adminButton, &QPushButton::clicked, this, [this]()
             {
                 auto *window = new AdministratorWindow();
-                window->show();
+                window->showMaximized();
                 this->close();
             });
 

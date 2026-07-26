@@ -72,7 +72,7 @@ void ManageStudentsWindow::refreshTable() {
 void ManageStudentsWindow::setupUI()
 {
     setWindowTitle("Manage Students");
-    resize(1400,850);
+    resize(1400,850); // fallback size if shown without maximizing
     setMinimumSize(1300, 800);
     setObjectName("ManageStudentsWindow");
 
@@ -147,7 +147,7 @@ QHeaderView::section{
     connect(backButton, &QPushButton::clicked, this, [this]()
             {
                 auto *window = new AdminDashboard();
-                window->show();
+                window->showMaximized();
                 this->close();
             });
     backButton->setFixedSize(100,40);

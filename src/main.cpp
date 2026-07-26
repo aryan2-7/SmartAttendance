@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
     a.setFont(FontManager::appFont(12));
 
     WelcomeWindow w;
-    w.show();
+    w.showMaximized();
 
     return a.exec();
 }

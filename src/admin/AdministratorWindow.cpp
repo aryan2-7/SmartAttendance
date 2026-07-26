@@ -26,7 +26,7 @@ AdministratorWindow::AdministratorWindow(QWidget *parent)
 void AdministratorWindow::setupUI()
 {
     setWindowTitle("Administrator Login");
-    resize(1400, 850);
+    resize(1400, 850); // fallback size if shown without maximizing
     setMinimumSize(1300, 800);
     setObjectName("AdministratorWindow");
 
@@ -49,7 +49,7 @@ QWidget#AdministratorWindow{
     connect(backButton, &QPushButton::clicked, this, [this]()
             {
                 auto *window = new WelcomeWindow();
-                window->show();
+                window->showMaximized();
                 this->close();
             });
     backButton->setFixedSize(110,40);
@@ -161,7 +161,7 @@ QLineEdit:focus{
         if (userDAO.checkLogin(usernameEdit->text().toStdString(),
                           passwordEdit->text().toStdString())) {
             auto *window = new AdminDashboard();
-            window->show();
+            window->showMaximized();
             this->close();
         } else {
             QMessageBox::critical(this, "Login Failed",

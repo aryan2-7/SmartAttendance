@@ -23,7 +23,6 @@
 #include <QAbstractItemView>
 #include <QDate>
 
-static const int SECONDS_IN_DAY = 86400;
 
 ScheduleEditor::ScheduleEditor(QWidget *parent)
     : QWidget(parent), dbConn("") {
@@ -48,7 +47,7 @@ ScheduleEditor::ScheduleEditor(QWidget *parent)
 
 void ScheduleEditor::setupUI() {
     setWindowTitle("Schedule Editor");
-    resize(1200, 750);
+    resize(1200, 750); // fallback size if shown without maximizing
 
     // =========================
     // Main Layout
@@ -217,7 +216,7 @@ void ScheduleEditor::setupUI() {
 
     connect(backButton, &QPushButton::clicked, this, [this]() {
         auto *window = new AdminDashboard();
-        window->show();
+        window->showMaximized();
         this->close();
     });
 }
@@ -231,7 +230,6 @@ void ScheduleEditor::setupStyles() {
         QWidget {
             background:%1;
             color:%2;
-            font-family:"Segoe UI";
         }
 
         QLabel {

@@ -13,14 +13,14 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 COMPONENTS Core Widgets SvgWidgets Svg QUIET)
+find_package(Qt6 COMPONENTS Core Widgets SvgWidgets Svg PrintSupport QUIET)
 if (Qt6_FOUND)
     message(STATUS "Using Qt6")
-    set(QT_LIBS Qt6::Core Qt6::Widgets Qt6::Svg Qt6::SvgWidgets)
+    set(QT_LIBS Qt6::Core Qt6::Widgets Qt6::Svg Qt6::SvgWidgets Qt6::PrintSupport)
 else()
-    find_package(Qt5 COMPONENTS Core Widgets Svg REQUIRED)
+    find_package(Qt5 COMPONENTS Core Widgets Svg PrintSupport REQUIRED)
     message(STATUS "Qt6 not found, falling back to Qt5")
-    set(QT_LIBS Qt5::Core Qt5::Widgets Qt5::Svg)
+    set(QT_LIBS Qt5::Core Qt5::Widgets Qt5::Svg Qt5::PrintSupport)
 endif()
 
 # ---- OpenCV ----
@@ -49,8 +49,8 @@ set(SOURCES
     src/attendance/AttendanceWindow.cpp
     # Module 4 – Records Viewer
     #src/records/RecordsViewer.cpp
-    # Module 5 – CSV Export
-    #src/export/CsvExporter.cpp
+    # Module 5 – Attendance Report Export (PDF)
+    src/attendance/export/AttendanceReportExporter.cpp
     # Shared – Database layer (new DAO architecture)
     src/db/Database.cpp
     src/db/StudentDAO.cpp
@@ -76,6 +76,7 @@ add_executable(SmartAttendance
     src/auth/FontManager.h
     src/registration/StudentRegistrationWindow.h
     src/attendance/AttendanceWindow.h
+    src/attendance/export/AttendanceReportExporter.h
     src/admin/AdministratorWindow.h
     src/admin/AdminDashboard.h
     src/admin/ManageStudentsWindow.h

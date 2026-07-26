@@ -66,7 +66,7 @@ AttendanceWindow::~AttendanceWindow() {
 
 void AttendanceWindow::setupUI() {
     setWindowTitle("Attendance Marking");
-    resize(1400, 850);
+    resize(1400, 850); // fallback size if shown without maximizing
     setStyleSheet(QString("QWidget{ background:%1; color:%2; }")
                       .arg(Theme::Card).arg(Theme::Primary));
 
@@ -80,7 +80,7 @@ void AttendanceWindow::setupUI() {
     connect(backButton, &QPushButton::clicked, this, [this]() {
         if (cap_.isOpened()) cap_.release();
         auto *window = new WelcomeWindow();
-        window->show();
+        window->showMaximized();
         this->close();
     });
     backButton->setFixedSize(110, 40);

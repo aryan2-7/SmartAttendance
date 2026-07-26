@@ -35,7 +35,7 @@ SubjectManagementWindow::SubjectManagementWindow(QWidget *parent)
 
 void SubjectManagementWindow::setupUI() {
     setWindowTitle("Subject Management");
-    resize(1200, 750);
+    resize(1200, 750); // fallback size if shown without maximizing
 
     // =========================
     // Main Layout
@@ -185,7 +185,7 @@ void SubjectManagementWindow::setupUI() {
 
     connect(backButton, &QPushButton::clicked, this, [this]() {
         auto *dashboard = new AdminDashboard();
-        dashboard->show();
+        dashboard->showMaximized();
         this->close();
     });
 }
@@ -199,7 +199,6 @@ void SubjectManagementWindow::setupStyles() {
         QWidget {
             background:%1;
             color:%2;
-            font-family:"Segoe UI";
         }
 
         QLabel {
