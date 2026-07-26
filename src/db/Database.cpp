@@ -25,6 +25,21 @@ Database::~Database() {
     }
 }
 
+Database::Database(Database&& other) noexcept : db(other.db) {
+    other.db = nullptr;
+}
+
+Database& Database::operator=(Database&& other) noexcept {
+    if (this != &other) {
+        if (db) {
+            sqlite3_close(db);
+        }
+        db = other.db;
+        other.db = nullptr;
+    }
+    return *this;
+}
+
 // Exposes the raw connection so DAOs can be constructed with it
 sqlite3* Database::getConnection() const {
     return db;
