@@ -1,6 +1,31 @@
-build/
-data/*.db
-resources/trained_models/*.yml
+# OS
 .DS_Store
-*.o
+Thumbs.db
+
+# IDE
+.vs/
+.vscode/
+.qt/
 *.user
+*.pro.user*
+
+# Build
+build/
+
+# Database
+*.db
+
+# Generated / export
+attendance.csv
+*.csv
+
+# Development scripts
+*.py
+
+# Training data
+resources/trained_models/
+
+# Docs
+docs/AI_AGENT_GUIDE.md
+.opencode/
+*.patch

@@ -4,103 +4,109 @@ project(SmartAttendance VERSION 1.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Qt needs this to find its generated files (MOC, UIC, RCC) — don't remove
+# Default to an optimized build unless the caller asked for something else.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
+endif()
+
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-
-# ─── Qt ───────────────────────────────────────────────────────────────────────
-# Try Qt6 first, fall back to Qt5 if not found (for teammates on older setups)
-find_package(Qt6 COMPONENTS Core Widgets QUIET)
+find_package(Qt6 COMPONENTS Core Widgets SvgWidgets Svg PrintSupport QUIET)
 if (Qt6_FOUND)
     message(STATUS "Using Qt6")
-    set(QT_LIBS Qt6::Core Qt6::Widgets)
+    set(QT_LIBS Qt6::Core Qt6::Widgets Qt6::Svg Qt6::SvgWidgets Qt6::PrintSupport)
 else()
-    find_package(Qt5 COMPONENTS Core Widgets REQUIRED)
+    find_package(Qt5 COMPONENTS Core Widgets Svg PrintSupport REQUIRED)
     message(STATUS "Qt6 not found, falling back to Qt5")
-    set(QT_LIBS Qt5::Core Qt5::Widgets)
+    set(QT_LIBS Qt5::Core Qt5::Widgets Qt5::Svg Qt5::PrintSupport)
 endif()
 
+# ---- OpenCV ----
+find_package(OpenCV REQUIRED COMPONENTS core imgproc objdetect videoio highgui dnn)
+message(STATUS "Found OpenCV ${OpenCV_VERSION} at: ${OpenCV_INCLUDE_DIRS}")
+message(STATUS "OpenCV libraries: ${OpenCV_LIBS}")
 
-# ─── OpenCV ───────────────────────────────────────────────────────────────────
-# We need opencv_contrib for the face module (LBPHFaceRecognizer lives there)
-# If you installed via homebrew: brew install opencv
-# Make sure you have the contrib modules — check with: brew info opencv
-find_package(OpenCV REQUIRED COMPONENTS
-    core
-    imgproc
-    objdetect   # Haar cascade
-    videoio     # webcam / VideoCapture
-    highgui     # imshow etc (handy for debugging)
-    face        # LBPHFaceRecognizer — needs opencv_contrib
-)
-
-if (NOT OpenCV_FOUND)
-    message(FATAL_ERROR "OpenCV not found. On macOS run: brew install opencv")
-endif()
-
-message(STATUS "OpenCV version: ${OpenCV_VERSION}")
-message(STATUS "OpenCV include: ${OpenCV_INCLUDE_DIRS}")
-
-
-# ─── SQLite ───────────────────────────────────────────────────────────────────
-# We bundle the sqlite amalgamation in third_party/sqlite so every teammate
-# gets the same version without needing a system install.
-# If that folder doesn't exist yet, just comment out this block for now —
-# it will be wired up properly in Phase 2 (DatabaseManager module).
-if (EXISTS "${CMAKE_SOURCE_DIR}/third_party/sqlite/sqlite3.c")
-    message(STATUS "Using bundled SQLite from third_party/sqlite")
-    set(SQLITE_SOURCES third_party/sqlite/sqlite3.c)
-    set(SQLITE_INCLUDE third_party/sqlite)
+if (EXISTS "${CMAKE_SOURCE_DIR}/sqlite/sqlite3.c")
+    message(STATUS "Using bundled SQLite from sqlite")
+    set(SQLITE_SOURCES sqlite/sqlite3.c)
+    set(SQLITE_INCLUDE sqlite)
 else()
-    message(STATUS "Bundled SQLite not found — skipping for now (needed for Phase 2)")
+    message(STATUS "Bundled SQLite not found")
     set(SQLITE_SOURCES "")
     set(SQLITE_INCLUDE "")
 endif()
 
-
-# ─── Source files ─────────────────────────────────────────────────────────────
-# Add each module's .cpp here as you finish them.
-# Commented-out lines = not implemented yet, uncomment when ready.
 set(SOURCES
     src/main.cpp
-
-    # Module 1 – Login (Subhechha)
-    # src/auth/LoginWindow.cpp
-
-    # Module 2 – Face Registration (Shashwot + Aryan)
-    src/registration/FaceRegistration.cpp
-
-    # Module 3 – Attendance Marking (Shashwot + Aryan)
-    # src/attendance/AttendanceMarker.cpp
-
-    # Module 4 – Records Viewer (Prachika)
-    # src/records/RecordsViewer.cpp
-
-    # Module 5 – CSV Export
-    # src/export/CsvExporter.cpp
-
-    # Shared – Database layer (Dilasha)
-    # src/db/Database.cpp
-
+    # Module 1 – Login
+    src/auth/WelcomeWindow.cpp
+    src/auth/FontManager.cpp
+    # Module 2 – Face Registration
+    src/registration/StudentRegistrationWindow.cpp
+    # Module 3 – Attendance Marking
+    src/attendance/AttendanceWindow.cpp
+    # Module 4 – Records Viewer
+    #src/records/RecordsViewer.cpp
+    # Module 5 – Attendance Report Export (PDF)
+    src/attendance/export/AttendanceReportExporter.cpp
+    # Shared – Database layer (new DAO architecture)
+    src/db/Database.cpp
+    src/db/StudentDAO.cpp
+    src/db/SubjectDAO.cpp
+    src/db/AttendanceDAO.cpp
+    src/db/UserDAO.cpp
+    # Module 6 – Administrator / Dashboard
+    src/admin/AdministratorWindow.cpp
+    src/admin/AdminDashboard.cpp
+    src/admin/ManageStudentsWindow.cpp
+    src/admin/AttendanceRecordsWindow.cpp
+    src/admin/CircularProgress.cpp
+    src/admin/SubjectManagementWindow.cpp
+    src/admin/ScheduleEditor.cpp
+    # Module 7 – Liveness Detection
+    src/liveness/LivenessDetector.cpp
     ${SQLITE_SOURCES}
 )
 
-
-# ─── Executable ───────────────────────────────────────────────────────────────
-add_executable(SmartAttendance ${SOURCES})
+add_executable(SmartAttendance
+    ${SOURCES}
+    src/auth/WelcomeWindow.h
+    src/auth/FontManager.h
+    src/registration/StudentRegistrationWindow.h
+    src/attendance/AttendanceWindow.h
+    src/attendance/export/AttendanceReportExporter.h
+    src/admin/AdministratorWindow.h
+    src/admin/AdminDashboard.h
+    src/admin/ManageStudentsWindow.h
+    src/admin/AttendanceRecordsWindow.h
+    src/admin/CircularProgress.h
+    src/liveness/LivenessDetector.h
+    src/admin/ScheduleEditor.h
+    src/admin/SubjectManagementWindow.h
+    src/db/Database.h
+    src/db/StudentDAO.h
+    src/db/SubjectDAO.h
+    src/db/AttendanceDAO.h
+    src/db/UserDAO.h
+    src/db/sha256.h
+    src/db/DbPath.h
+    src/theme/Theme.h
+    fonts.qrc
+)
 
 target_include_directories(SmartAttendance PRIVATE
     ${OpenCV_INCLUDE_DIRS}
     ${SQLITE_INCLUDE}
-    src                     # so modules can include each other without relative path gymnastics
+    src
     src/auth
     src/registration
     src/attendance
-    src/records
-    src/export
     src/db
+    src/admin
+    src/liveness
+    src/theme
 )
 
 target_link_libraries(SmartAttendance PRIVATE
@@ -108,27 +114,11 @@ target_link_libraries(SmartAttendance PRIVATE
     ${OpenCV_LIBS}
 )
 
-
-# ─── webcam_test (standalone build sanity check) ──────────────────────────────
-# This is just a quick binary to confirm your webcam + OpenCV setup is working
-# before touching the main app. Build it with: cmake --build . --target webcam_test
-if (EXISTS "${CMAKE_SOURCE_DIR}/tests/webcam_test.cpp")
-    add_executable(webcam_test tests/webcam_test.cpp)
-    target_include_directories(webcam_test PRIVATE ${OpenCV_INCLUDE_DIRS})
-    target_link_libraries(webcam_test PRIVATE ${OpenCV_LIBS})
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(SmartAttendance PRIVATE -Wall -Wextra)
 endif()
 
-
-# ─── How to build (macOS) ─────────────────────────────────────────────────────
-#
-#   cd ~/Desktop/SmartAttendence   ← yes the folder name has a typo, keep it
-#   mkdir -p build && cd build
-#   cmake ..
-#   make -j$(sysctl -n hw.logicalcpu)   ← uses all your cores, way faster
-#
-# If cmake can't find Qt or OpenCV, pass the paths manually e.g.:
-#   cmake .. -DCMAKE_PREFIX_PATH=$(brew --prefix qt)
-#
-# If you get a camera permission error on macOS, you need to run the app from
-# Finder or give terminal camera access in System Settings > Privacy & Security
-# ─────────────────────────────────────────────────────────────────────────────
+string(REPLACE "\\" "/" NORMALIZED_SOURCE_DIR "${CMAKE_SOURCE_DIR}")
+target_compile_definitions(SmartAttendance PRIVATE
+    PROJECT_SOURCE_DIR="${NORMALIZED_SOURCE_DIR}"
+)
