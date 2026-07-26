@@ -1,8 +1,13 @@
-name: Build Installers
+name: Build and Release
 
 on:
   push:
     branches: [main, integration]
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
   build-macos:
@@ -17,17 +22,19 @@ jobs:
             -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6)"
       - name: Build
         run: cmake --build build --config Release
-      - name: Deploy Qt frameworks
+      - name: Deploy Qt and package DMG
         run: |
-          $(brew --prefix qt@6)/bin/macdeployqt build/SmartAttendance.app -dmg
-      - name: Package
-        working-directory: build
-        run: cpack
+          $(brew --prefix qt@6)/bin/macdeployqt build/SmartAttendance.app -no-strip
+          codesign --deep --force --sign - build/SmartAttendance.app
+          mkdir -p dmg_staging
+          cp -R build/SmartAttendance.app dmg_staging/
+          ln -s /Applications dmg_staging/Applications
+          hdiutil create -volname SmartAttendance -srcfolder dmg_staging -ov -format UDZO -imagekey zlib-level=9 build/SmartAttendance.dmg
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: SmartAttendance-macOS
-          path: build/*.dmg
+          path: build/SmartAttendance.dmg
 
   build-windows:
     runs-on: windows-latest
@@ -38,15 +45,13 @@ jobs:
         with:
           version: '6.7.0'
       - name: Install OpenCV
-        run: |
-          choco install opencv -y
+        run: choco install opencv -y
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DPACKAGING=ON
       - name: Build
         run: cmake --build build --config Release
       - name: Deploy Qt DLLs
-        run: |
-          windeployqt build/Release/SmartAttendance.exe
+        run: windeployqt build/Release/SmartAttendance.exe
       - name: Package
         working-directory: build
         run: cpack -C Release
@@ -55,3 +60,22 @@ jobs:
         with:
           name: SmartAttendance-Windows
           path: build/*.exe
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: SmartAttendance-macOS
+          path: artifacts/macos
+      - uses: actions/download-artifact@v4
+        with:
+          name: SmartAttendance-Windows
+          path: artifacts/windows
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/macos/*
+            artifacts/windows/*
