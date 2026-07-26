@@ -2,7 +2,9 @@
 #include "../auth/FontManager.h"
 #include "../auth/WelcomeWindow.h"
 #include "../theme/Theme.h"
-#include "../db/db.h"
+#include "../db/Database.h"
+#include "../db/StudentDAO.h"
+#include "../db/DbPath.h"
 
 #include <QVBoxLayout>
 #include <QLabel>
@@ -212,6 +214,87 @@ QPushButton:hover{
     connect(registerButton, &QPushButton::clicked, this, &StudentRegistrationWindow::onRegisterClicked);
     formLayout->addRow(registerButton);
 
+    // Continue to Home button
+    backHomeButton = new QPushButton("Continue to Home");
+    backHomeButton->setMinimumHeight(45);
+    backHomeButton->setEnabled(false);
+
+    backHomeButton->setStyleSheet(QString(R"(
+QPushButton{
+    background:%1;
+    color:%2;
+    border:1px solid %3;
+    border-radius:10px;
+    font-size:15px;
+    font-weight:bold;
+}
+QPushButton:hover{
+    background:%4;
+}
+QPushButton:disabled{
+    background:%5;
+    color:%6;
+    border:1px solid %3;
+}
+)")
+                                      .arg(Theme::Surface)
+                                      .arg(Theme::Primary)
+                                      .arg(Theme::Border)
+                                      .arg(Theme::Hover)
+                                      .arg(Theme::Input)
+                                      .arg(Theme::Secondary));
+
+    // Connect button to WelcomeWindow
+    connect(backHomeButton, &QPushButton::clicked, this, [this]()
+            {
+                if (cap_.isOpened())
+                    cap_.release();
+
+                auto *window = new WelcomeWindow();
+                window->show();
+
+                this->close();
+            });
+
+    formLayout->addRow(backHomeButton);
+
+    backHomeButton->setStyleSheet(QString(R"(
+QPushButton{
+    background:%1;
+    color:%2;
+    border:1px solid %3;
+    border-radius:10px;
+    font-size:15px;
+    font-weight:bold;
+}
+QPushButton:hover{
+    background:%4;
+}
+QPushButton:disabled{
+    background:%5;
+    color:%6;
+    border:1px solid %3;
+}
+)")
+                                      .arg(Theme::Surface)
+                                      .arg(Theme::Primary)
+                                      .arg(Theme::Border)
+                                      .arg(Theme::Hover)
+                                      .arg(Theme::Input)
+                                      .arg(Theme::Secondary));
+
+    connect(backHomeButton, &QPushButton::clicked, this, [this]()
+            {
+                if (cap_.isOpened())
+                    cap_.release();
+
+                auto *window = new WelcomeWindow();
+                window->show();
+                this->close();
+            });
+
+    formLayout->addRow(backHomeButton);
+
     // right card: face capture
     QFrame *rightCover = new QFrame;
     rightCover->setFixedWidth(540);
@@ -333,9 +416,10 @@ void StudentRegistrationWindow::onRegisterClicked() {
         return;
     }
 
-    Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+    Database db(appDbPath());
     db.initializeTables();
-    if (db.studentExists(rollNum)) {
+    StudentDAO studentDAO(db.getConnection());
+    if (studentDAO.studentExists(rollNum)) {
         QMessageBox::warning(this, "Exists", "Student with this roll number already exists!");
         return;
     }
@@ -439,9 +523,10 @@ void StudentRegistrationWindow::saveEmbeddings(const QString &name, const QStrin
     ofs.write(reinterpret_cast<char*>(gallery.data), rows * cols * sizeof(float));
     ofs.close();
 
-    Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+    Database db(appDbPath());
     db.initializeTables();
-    if (!db.addStudent(name.toStdString(), roll.toInt(), filename.toStdString())) {
+    StudentDAO studentDAO(db.getConnection());
+    if (!studentDAO.addStudent(name.toStdString(), roll.toInt(), filename.toStdString())) {
         QFile::remove(filename);
         statusLabel->setText("Registration failed!");
         registerButton->setEnabled(true);
@@ -451,4 +536,5 @@ void StudentRegistrationWindow::saveEmbeddings(const QString &name, const QStrin
 
     statusLabel->setText("Registration Complete!");
     registerButton->setEnabled(true);
+    backHomeButton->setEnabled(true);
 }

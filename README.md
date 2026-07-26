@@ -6,7 +6,7 @@ Submitted for ENGG 102 – Kathmandu University, Dept. of Computer Science.
 ## Team
 | Name | Roll | Module |
 |------|------|--------|
-| Aryan Khatri | 43 | Face Registration|
+| Aryan Khatri | 43 | Face Registration & Integration of All Other Modules|
 | Shashwot Karki | 36 |Attendance Marking |
 | Subhechha Ghimire | 26 | Login / Auth |
 | Dilasha Dulal | 18 | UI/UX |

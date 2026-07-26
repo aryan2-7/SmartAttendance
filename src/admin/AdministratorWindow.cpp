@@ -1,7 +1,9 @@
 #include "AdministratorWindow.h"
 #include "../auth/FontManager.h"
 #include "../theme/Theme.h"
-#include "../db/db.h"
+#include "../db/Database.h"
+#include "../db/UserDAO.h"
+#include "../db/DbPath.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -153,9 +155,10 @@ QLineEdit:focus{
     cardLayout->addWidget(passwordEdit);
 
     auto doLogin = [this]() {
-        Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+        Database db(appDbPath());
         db.initializeTables();
-        if (db.checkLogin(usernameEdit->text().toStdString(),
+        UserDAO userDAO(db.getConnection());
+        if (userDAO.checkLogin(usernameEdit->text().toStdString(),
                           passwordEdit->text().toStdString())) {
             auto *window = new AdminDashboard();
             window->show();

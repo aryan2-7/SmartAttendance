@@ -5,7 +5,12 @@
 #include "ManageStudentsWindow.h"
 #include "AttendanceRecordsWindow.h"
 #include "AdministratorWindow.h"
-#include "../db/db.h"
+#include "../db/Database.h"
+#include "../db/StudentDAO.h"
+#include "../db/AttendanceDAO.h"
+#include "../db/DbPath.h"
+#include "SubjectManagementWindow.h"
+#include "ScheduleEditor.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -22,6 +27,7 @@
 #include <fstream>
 #include <algorithm>
 
+
 AdminDashboard::AdminDashboard(QWidget *parent)
     : QWidget(parent)
 {
@@ -32,22 +38,22 @@ AdminDashboard::AdminDashboard(QWidget *parent)
 
 void AdminDashboard::refreshDashboard()
 {
-    Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+    Database db(appDbPath());
     db.initializeTables();
-    auto students = db.getAllStudents();
-    auto records = db.getAllRecords();
+    StudentDAO studentDAO(db.getConnection());
+    AttendanceDAO attendanceDAO(db.getConnection());
+    auto students = studentDAO.getAllStudents();
+
+    std::string today = QDate::currentDate().toString("yyyy-MM-dd").toStdString();
+    auto records = attendanceDAO.getDisplayRecords(today, today);
 
     int totalStudents = static_cast<int>(students.size());
 
     // Count today's check-ins
-    std::string today = QDate::currentDate().toString("yyyy-MM-dd").toStdString();
-    int todayCount = 0;
+    int todayCount = static_cast<int>(records.size());
     int lateTally = 0;
     for (auto &r : records) {
-        if (r.date == today) {
-            ++todayCount;
-            if (r.time > "09:00:00") ++lateTally;
-        }
+        if (r.displayAttendanceTime > "09:00:00") ++lateTally;
     }
 
     int attendancePct = (totalStudents > 0)
@@ -100,11 +106,11 @@ void AdminDashboard::refreshDashboard()
 
         QLabel *avatar = new QLabel("\U0001F464");
         avatar->setStyleSheet("font-size:24px;");
-        QLabel *name = new QLabel(QString::fromStdString(r.studentName));
+        QLabel *name = new QLabel(QString::fromStdString(r.displayStudentName));
         name->setFont(FontManager::buttonFont(14));
         name->setStyleSheet(QString("color:%1;").arg(Theme::Primary));
 
-        bool isLate = (r.time > "09:00:00");
+        bool isLate = (r.displayAttendanceTime > "09:00:00");
         QString statusText = isLate ? "Late" : "Present";
         QString statusColor = isLate ? Theme::Warning : Theme::Success;
 
@@ -114,7 +120,7 @@ void AdminDashboard::refreshDashboard()
                 .arg(Theme::Card).arg(statusColor));
 
         QLabel *timeLabel = new QLabel(
-            QString::fromStdString(r.time.substr(0, 5)));
+            QString::fromStdString(r.displayAttendanceTime.substr(0, 5)));
         timeLabel->setStyleSheet(QString("color:%1;").arg(Theme::Secondary));
 
         rowLayout->addWidget(avatar);
@@ -320,18 +326,22 @@ QFrame{
     weekLayout->addWidget(weekTitle);
 
     // Compute weekly data from DB
-    Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
-    db.initializeTables();
-    auto allRecords = db.getAllRecords();
-    auto allStudents = db.getAllStudents();
-    int totalStudents = static_cast<int>(allStudents.size());
+    Database weekDb(appDbPath());
+    weekDb.initializeTables();
+    StudentDAO weekStudentDAO(weekDb.getConnection());
+    AttendanceDAO weekAttendanceDAO(weekDb.getConnection());
+    int totalStudents = static_cast<int>(weekStudentDAO.getAllStudents().size());
 
     // Count attendance per day of current week
     QDate today = QDate::currentDate();
     QDate monday = today.addDays(-(today.dayOfWeek() - 1));
+    auto weekRecords = weekAttendanceDAO.getDisplayRecords(
+        monday.toString("yyyy-MM-dd").toStdString(),
+        today.toString("yyyy-MM-dd").toStdString());
+
     std::map<int, int> dayCount; // 1=Mon..7=Sun
-    for (auto &r : allRecords) {
-        QDate d = QDate::fromString(QString::fromStdString(r.date), "yyyy-MM-dd");
+    for (auto &r : weekRecords) {
+        QDate d = QDate::fromString(QString::fromStdString(r.displaySessionDate), "yyyy-MM-dd");
         if (d.isValid() && d >= monday && d <= today) {
             dayCount[d.dayOfWeek()]++;
         }
@@ -640,18 +650,21 @@ QPushButton:hover{
             this, "Export Attendance CSV", "attendance_export.csv", "CSV Files (*.csv)");
         if (filePath.isEmpty()) return;
 
-        Database db(std::string(PROJECT_SOURCE_DIR) + "/smart_attendance.db");
+        Database db(appDbPath());
         db.initializeTables();
-        auto records = db.getAllRecords();
+        AttendanceDAO attendanceDAO(db.getConnection());
+        // Wide date range: every session ever recorded through today.
+        auto records = attendanceDAO.getDisplayRecords(
+            "0000-01-01", QDate::currentDate().toString("yyyy-MM-dd").toStdString());
 
         std::ofstream csv(filePath.toStdString());
-        csv << "ID,Student Name,Roll No,Date,Time\n";
+        csv << "Student Name,Roll No,Date,Time,Status\n";
         for (auto &r : records) {
-            csv << r.id << ","
-                << r.studentName << ","
-                << r.rollNumber << ","
-                << r.date << ","
-                << r.time << "\n";
+            csv << r.displayStudentName << ","
+                << r.displayRollNumber << ","
+                << r.displaySessionDate << ","
+                << r.displayAttendanceTime << ","
+                << r.displayAttendanceStatus << "\n";
         }
         csv.close();
 
@@ -666,7 +679,241 @@ QPushButton:hover{
     exportLayout->addWidget(exportButton);
     bottomRow->addWidget(exportCard);
 
-    mainLayout->addLayout(bottomRow);
 
+    // =========================================================
+    // Manage Subjects Card
+    // =========================================================
+
+    QFrame *subjectCard = new QFrame();
+    subjectCard->setObjectName("subjectCard");
+    subjectCard->setMinimumSize(95,95);
+
+    subjectCard->setStyleSheet(QString(R"(
+#subjectCard{
+    background:%1;
+    border:1px solid %2;
+    border-radius:18px;
+}
+)")
+                                   .arg(Theme::Surface)
+                                   .arg(Theme::Border));
+
+    auto *subjectShadow = new QGraphicsDropShadowEffect;
+    subjectShadow->setBlurRadius(20);
+    subjectShadow->setOffset(0,4);
+    subjectShadow->setColor(QColor(0,0,0,120));
+    subjectCard->setGraphicsEffect(subjectShadow);
+
+    QVBoxLayout *subjectLayout = new QVBoxLayout(subjectCard);
+    subjectLayout->setContentsMargins(10,10,10,10);
+    subjectLayout->setSpacing(8);
+
+
+    // Icon
+    QLabel *subjectIcon = new QLabel();
+    subjectIcon->setFixedSize(36,36);
+    subjectIcon->setAlignment(Qt::AlignCenter);
+
+    subjectIcon->setStyleSheet(QString(R"(
+QLabel{
+    background:%1;
+    border-radius:18px;
+    font-size:18px;
+}
+)")
+                                   .arg(Theme::Gold));
+
+
+    // Title
+    QLabel *subjectTitle = new QLabel("Manage Subjects");
+    subjectTitle->setAlignment(Qt::AlignCenter);
+    subjectTitle->setFont(FontManager::headingFont(16));
+
+    subjectTitle->setStyleSheet(
+        QString("color:%1;").arg(Theme::Primary));
+
+
+    // Description
+    QLabel *subjectDesc = new QLabel(
+        "Add, edit and manage subjects."
+        );
+
+    subjectDesc->setAlignment(Qt::AlignCenter);
+    subjectDesc->setWordWrap(true);
+
+    subjectDesc->setStyleSheet(
+        QString("color:%1; font-size:16px;")
+            .arg(Theme::Secondary));
+
+
+    // Open Button
+    QPushButton *subjectButton = new QPushButton("Open");
+    subjectButton->setMinimumHeight(20);
+
+    subjectButton->setStyleSheet(QString(R"(
+QPushButton{
+    background:%1;
+    color:%2;
+    border:none;
+    border-radius:10px;
+    font-weight:bold;
+}
+QPushButton:hover{
+    background:%3;
+}
+)")
+                                     .arg(Theme::Gold)
+                                     .arg(Theme::Card)
+                                     .arg(Theme::Warning));
+
+
+    // Open Subject Management Window
+    connect(subjectButton, &QPushButton::clicked, this, [this]() {
+
+        auto *window = new SubjectManagementWindow();
+
+        window->show();
+
+        this->close();
+    });
+
+
+    // Add widgets to card
+    subjectLayout->addWidget(subjectIcon);
+    subjectLayout->addWidget(subjectTitle);
+    subjectLayout->addWidget(subjectDesc);
+    subjectLayout->addStretch();
+    subjectLayout->addWidget(subjectButton);
+
+
+    // Add card to bottom row
+    bottomRow->addWidget(subjectCard);
+    // Schedule Editor Card
+    QFrame *scheduleCard = new QFrame();
+    scheduleCard->setObjectName("scheduleCard");
+    scheduleCard->setMinimumSize(95, 95);
+
+    scheduleCard->setStyleSheet(QString(R"(
+#scheduleCard{
+    background:%1;
+    border:1px solid %2;
+    border-radius:18px;
+}
+)")
+                                    .arg(Theme::Surface)
+                                    .arg(Theme::Border));
+
+    auto *scheduleShadow = new QGraphicsDropShadowEffect;
+    scheduleShadow->setBlurRadius(20);
+    scheduleShadow->setOffset(0,4);
+    scheduleShadow->setColor(QColor(0,0,0,120));
+
+    scheduleCard->setGraphicsEffect(scheduleShadow);
+
+
+    // Schedule Card Layout
+    QVBoxLayout *scheduleLayout =
+        new QVBoxLayout(scheduleCard);
+
+    scheduleLayout->setContentsMargins(10,10,10,10);
+    scheduleLayout->setSpacing(8);
+
+
+    // Icon
+    QLabel *scheduleIcon = new QLabel();
+
+    scheduleIcon->setFixedSize(36,36);
+    scheduleIcon->setAlignment(Qt::AlignCenter);
+
+    scheduleIcon->setStyleSheet(QString(R"(
+QLabel{
+    background:%1;
+    border-radius:18px;
+    font-size:18px;
+}
+)")
+                                    .arg(Theme::Warning));
+
+
+    // Title
+    QLabel *scheduleTitle =
+        new QLabel("Schedule Editor");
+
+    scheduleTitle->setAlignment(Qt::AlignCenter);
+
+    scheduleTitle->setFont(
+        FontManager::headingFont(16)
+        );
+
+    scheduleTitle->setStyleSheet(
+        QString("color:%1;")
+            .arg(Theme::Primary)
+        );
+
+
+    // Description
+    QLabel *scheduleDesc =
+        new QLabel(
+            "Create and manage weekly class schedules."
+            );
+
+    scheduleDesc->setAlignment(Qt::AlignCenter);
+    scheduleDesc->setWordWrap(true);
+
+    scheduleDesc->setStyleSheet(
+        QString("color:%1; font-size:16px;")
+            .arg(Theme::Secondary)
+        );
+
+
+    // Open Button
+    QPushButton *scheduleButton =
+        new QPushButton("Open");
+
+    scheduleButton->setMinimumHeight(20);
+
+    scheduleButton->setStyleSheet(QString(R"(
+QPushButton{
+    background:%1;
+    color:%2;
+    border:none;
+    border-radius:10px;
+    font-weight:bold;
+}
+QPushButton:hover{
+    background:%3;
+}
+)")
+                                      .arg(Theme::Gold)
+                                      .arg(Theme::Card)
+                                      .arg(Theme::Warning));
+
+
+    connect(scheduleButton, &QPushButton::clicked, this, [this]() {
+
+        auto *window = new ScheduleEditor();
+        window->show();
+
+        this->close();
+
+    });
+
+
+    // Add Widgets
+    scheduleLayout->addWidget(scheduleIcon);
+    scheduleLayout->addWidget(scheduleTitle);
+    scheduleLayout->addWidget(scheduleDesc);
+
+    scheduleLayout->addStretch();
+
+    scheduleLayout->addWidget(scheduleButton);
+
+
+    // Add Card to Bottom Row
+    bottomRow->addWidget(scheduleCard);
+
+
+    // Add bottom row to main layout
+    mainLayout->addLayout(bottomRow);
     setLayout(mainLayout);
 }

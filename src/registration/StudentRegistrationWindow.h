@@ -1,3 +1,5 @@
+//src/registration/StudentRegistrationWindow.h
+
 #pragma once
 
 #include <QWidget>
@@ -34,6 +36,7 @@ private:
     QLineEdit* nameEdit;
     QLineEdit* rollEdit;
     QPushButton* registerButton;
+    QPushButton *backHomeButton;
 
     cv::VideoCapture cap_;
     QTimer *frameTimer_;
