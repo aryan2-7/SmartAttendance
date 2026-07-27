@@ -101,7 +101,7 @@ jobs:
           path: build/*.msi
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     needs: [build-macos, build-windows]
     runs-on: ubuntu-latest
     steps:
@@ -120,6 +120,9 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && 'nightly' || github.ref_name }}
+          name: ${{ github.event_name == 'workflow_dispatch' && 'Nightly Build' || github.ref_name }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' }}
           files: |
             release-assets/macos/*.dmg
             release-assets/windows/*.msi
