@@ -23,7 +23,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: $HOME/opencv-install
-          key: opencv-4.10.0-macos-${{ runner.arch }}-fastbuild
+          key: opencv-4.10.0-macos-${{ runner.arch }}-fastbuild-v2
 
       - name: Download OpenCV
         if: steps.cache-opencv.outputs.cache-hit != 'true'
@@ -40,6 +40,9 @@ jobs:
             -DCMAKE_INSTALL_PREFIX=$HOME/opencv-install \
             -DWITH_OPENBLAS=OFF \
             -DWITH_LAPACK=OFF \
+            -DWITH_OBSENSOR=OFF \
+            -DWITH_FFMPEG=OFF \
+            -DWITH_GSTREAMER=OFF \
             -DBUILD_TESTS=OFF \
             -DBUILD_PERF_TESTS=OFF \
             -DBUILD_EXAMPLES=OFF \
