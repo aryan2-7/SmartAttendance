@@ -15,14 +15,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Qt and OpenCV
-        run: brew install qt@6 opencv
+      - name: Install Qt
+        run: brew install qt@6
+
+      - name: Cache OpenCV build
+        id: cache-opencv
+        uses: actions/cache@v4
+        with:
+          path: $HOME/opencv-install
+          key: opencv-4.10.0-macos-${{ runner.arch }}-fastbuild
+
+      - name: Download OpenCV
+        if: steps.cache-opencv.outputs.cache-hit != 'true'
+        run: |
+          curl -L https://github.com/opencv/opencv/archive/4.10.0.zip -o opencv.zip
+          unzip -q opencv.zip
+          mv opencv-4.10.0 opencv
+
+      - name: Build OpenCV
+        if: steps.cache-opencv.outputs.cache-hit != 'true'
+        run: |
+          cmake -S opencv -B opencv-build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=$HOME/opencv-install \
+            -DWITH_OPENBLAS=OFF \
+            -DWITH_LAPACK=OFF \
+            -DBUILD_TESTS=OFF \
+            -DBUILD_PERF_TESTS=OFF \
+            -DBUILD_EXAMPLES=OFF \
+            -DBUILD_opencv_apps=OFF \
+            -DBUILD_LIST=core,imgproc,objdetect,videoio,highgui,dnn
+          cmake --build opencv-build --parallel
+          cmake --install opencv-build
 
       - name: Configure SmartAttendance
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DPACKAGING=ON \
             -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6)" \
-            -DOpenCV_DIR="$(brew --prefix opencv)/lib/cmake/opencv4"
+            -DOpenCV_DIR=$HOME/opencv-install/lib/cmake/opencv4
 
       - name: Build
         run: cmake --build build --config Release
