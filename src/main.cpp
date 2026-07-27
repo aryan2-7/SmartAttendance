@@ -10,6 +10,10 @@ int main(int argc, char *argv[]) {
     // FIX for: "Could not find the Qt platform plugin 'windows'"
     qputenv("QT_PLUGIN_PATH", QByteArray("C:\\vcpkg\\installed\\x64-windows\\debug\\Qt6\\plugins"));
 #endif
+#ifdef __APPLE__
+    // Workaround for OMP: Error #15 (duplicate OpenMP runtime) caused by Homebrew's OpenCV
+    qputenv("KMP_DUPLICATE_LIB_OK", "TRUE");
+#endif
 
     cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_ERROR);
 
