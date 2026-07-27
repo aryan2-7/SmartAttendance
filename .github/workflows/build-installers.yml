@@ -104,10 +104,14 @@ jobs:
         shell: pwsh
         run: cmake --build build --config Release
 
-      - name: Deploy Qt DLLs
+      - name: Deploy Qt and OpenCV DLLs
         shell: pwsh
         run: |
           & "$env:QT_ROOT_DIR\bin\windeployqt.exe" build\Release\SmartAttendance.exe
+          $opencvBin = Get-ChildItem C:\tools -Recurse -Filter opencv_world*.dll | Select-Object -First 1 -ExpandProperty DirectoryName
+          if ($opencvBin) {
+              Copy-Item "$opencvBin\*.dll" -Destination build\Release\
+          }
 
       - name: Package MSI
         shell: pwsh

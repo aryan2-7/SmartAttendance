@@ -159,11 +159,16 @@ if(PACKAGING)
             resources/models/face_recognition_sface_2021dec.onnx
         )
     elseif(WIN32)
+        install(TARGETS SmartAttendance RUNTIME DESTINATION bin)
         install(FILES
             resources/models/face_detection_yunet_2023mar.onnx
             resources/models/face_recognition_sface_2021dec.onnx
-            DESTINATION resources/models
+            DESTINATION bin/resources/models
         )
+        # Install the deployed DLLs and plugins from the Release folder
+        install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/Release/"
+                DESTINATION bin
+                USE_SOURCE_PERMISSIONS)
     endif()
 endif()
 
@@ -177,12 +182,9 @@ if(APPLE)
     set(CPACK_GENERATOR "DragNDrop")
     set(CPACK_DMG_VOLUME_NAME "SmartAttendance")
 elseif(WIN32)
-    set(CPACK_GENERATOR "NSIS")
-    set(CPACK_NSIS_PACKAGE_NAME "SmartAttendance")
-    set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+    set(CPACK_GENERATOR "WIX")
     set(CPACK_WIX_UPGRADE_GUID "A1B2C3D4-E5F6-7890-ABCD-EF1234567890")
     set(CPACK_WIX_PRODUCT_NAME "SmartAttendance")
-    set(CPACK_WIX_PATCH_FILE "")
 endif()
 
 include(CPack)
