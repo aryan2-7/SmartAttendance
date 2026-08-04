@@ -301,3 +301,69 @@ int AttendanceDAO::countStudentsBelowMinimumAttendance() {
     return count;
 }
 
+// Enrolled students whose subject has at least one session within the date
+// range but who have no attendance record anywhere in that range.
+std::vector<AttendanceDisplayRecord> AttendanceDAO::getAbsentDisplayRecords(
+    const std::string& startDate, const std::string& endDate, int subjectId) {
+    std::vector<AttendanceDisplayRecord> records;
+
+    std::string sql =
+        "SELECT s.studentId, s.studentName, s.studentRollNumber, "
+        "(SELECT MAX(cs2.sessionDate) FROM class_sessions cs2 "
+        " WHERE cs2.sessionSubjectId = e.enrollmentSubjectId "
+        " AND cs2.sessionDate BETWEEN ? AND ?) AS lastExpectedDate "
+        "FROM enrollments e "
+        "JOIN students s ON s.studentId = e.enrollmentStudentId "
+        "JOIN class_sessions cs "
+        "  ON cs.sessionSubjectId = e.enrollmentSubjectId "
+        " AND cs.sessionDate BETWEEN ? AND ? "
+        "WHERE NOT EXISTS ( "
+        "  SELECT 1 FROM attendance a "
+        "  JOIN class_sessions cs3 ON cs3.sessionId = a.attendanceSessionId "
+        "  WHERE a.attendanceStudentId = s.studentId "
+        "  AND cs3.sessionDate BETWEEN ? AND ? ";
+    if (subjectId >= 0) {
+        sql += "  AND cs3.sessionSubjectId = ? ";
+    }
+    sql += ") ";
+    if (subjectId >= 0) {
+        sql += "AND e.enrollmentSubjectId = ? ";
+    }
+    sql += "GROUP BY s.studentId "
+           "ORDER BY s.studentRollNumber;";
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        return records;
+    }
+
+    int index = 1;
+    sqlite3_bind_text(stmt, index++, startDate.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, index++, endDate.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, index++, startDate.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, index++, endDate.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, index++, startDate.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, index++, endDate.c_str(), -1, SQLITE_TRANSIENT);
+    if (subjectId >= 0) {
+        sqlite3_bind_int(stmt, index++, subjectId);
+        sqlite3_bind_int(stmt, index++, subjectId);
+    }
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        AttendanceDisplayRecord r;
+        r.displayStudentId = sqlite3_column_int(stmt, 0);
+        const char* nameText = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        if (nameText) r.displayStudentName = nameText;
+        r.displayRollNumber = sqlite3_column_int(stmt, 2);
+        const char* dateText = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        if (dateText) r.displaySessionDate = dateText;
+        r.displayAttendanceTime = "";
+        r.displayAttendanceStatus = "absent";
+        r.displaySessionStartTime = "";
+        records.push_back(r);
+    }
+
+    sqlite3_finalize(stmt);
+    return records;
+}
+

@@ -189,11 +189,15 @@ QLabel{
     cardLayout->addWidget(rosterTitle);
 
     rosterTable = new QTableWidget();
-    rosterTable->setColumnCount(4);
-    rosterTable->setHorizontalHeaderLabels({"Student Name", "Roll No", "Date", "Time"});
-    rosterTable->horizontalHeader()->setStretchLastSection(true);
+    rosterTable->setColumnCount(5);
+    rosterTable->setHorizontalHeaderLabels({"Student Name", "Roll No", "Date", "Time", "Status"});
+    rosterTable->horizontalHeader()->setStretchLastSection(false);
     rosterTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
     rosterTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    rosterTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    rosterTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    rosterTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
+    rosterTable->horizontalHeader()->setMinimumSectionSize(90);
     rosterTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     rosterTable->setSelectionMode(QAbstractItemView::NoSelection);
     rosterTable->verticalHeader()->hide();
@@ -265,21 +269,66 @@ void AttendanceRecordsWindow::refreshView()
         today.toString("yyyy-MM-dd").toStdString(),
         subjectId);
 
-    rosterTable->setRowCount(static_cast<int>(records.size()));
-    for (int i = 0; i < static_cast<int>(records.size()); ++i) {
-        auto &r = records[i];
-        rosterTable->setItem(i, 0, new QTableWidgetItem(QString::fromStdString(r.displayStudentName)));
-        rosterTable->setItem(i, 1, new QTableWidgetItem(QString::number(r.displayRollNumber)));
-        rosterTable->setItem(i, 2, new QTableWidgetItem(QString::fromStdString(r.displaySessionDate)));
-        rosterTable->setItem(i, 3, new QTableWidgetItem(
+    auto absent = attendanceDAO.getAbsentDisplayRecords(
+        startDate.toString("yyyy-MM-dd").toStdString(),
+        today.toString("yyyy-MM-dd").toStdString(),
+        subjectId);
+
+    int totalRows = static_cast<int>(records.size()) + static_cast<int>(absent.size());
+    rosterTable->setRowCount(totalRows);
+
+    int row = 0;
+    for (auto &r : records) {
+        bool isLate = isLateArrival(r.displayAttendanceTime, r.displaySessionStartTime);
+        QString statusText = isLate ? "Late" : "Present";
+
+        rosterTable->setItem(row, 0, new QTableWidgetItem(QString::fromStdString(r.displayStudentName)));
+        rosterTable->setItem(row, 1, new QTableWidgetItem(QString::number(r.displayRollNumber)));
+        rosterTable->setItem(row, 2, new QTableWidgetItem(QString::fromStdString(r.displaySessionDate)));
+        rosterTable->setItem(row, 3, new QTableWidgetItem(
             QString::fromStdString(r.displayAttendanceTime.substr(0, 5))));
+
+        QTableWidgetItem *statusItem = new QTableWidgetItem(statusText);
+        statusItem->setForeground(isLate ? QColor(Theme::Warning) : QColor(Theme::Success));
+        statusItem->setFont(FontManager::buttonFont(13));
+        rosterTable->setItem(row, 4, statusItem);
+        ++row;
     }
 
-    rangeSummaryLabel->setText(
-        QString("Showing %1 record(s) from %2 to %3.")
-            .arg(records.size())
-            .arg(startDate.toString("MMM d, yyyy"))
-            .arg(today.toString("MMM d, yyyy")));
+    for (auto &a : absent) {
+        rosterTable->setItem(row, 0, new QTableWidgetItem(QString::fromStdString(a.displayStudentName)));
+        rosterTable->setItem(row, 1, new QTableWidgetItem(QString::number(a.displayRollNumber)));
+        rosterTable->setItem(row, 2, new QTableWidgetItem(QString::fromStdString(a.displaySessionDate)));
+        rosterTable->setItem(row, 3, new QTableWidgetItem("\u2014"));
+
+        QTableWidgetItem *statusItem = new QTableWidgetItem("Absent");
+        statusItem->setForeground(QColor(Theme::Danger));
+        statusItem->setFont(FontManager::buttonFont(13));
+        rosterTable->setItem(row, 4, statusItem);
+
+        QColor rowShade(Theme::Danger);
+        rowShade.setAlpha(40);
+        for (int col = 0; col < 5; ++col) {
+            rosterTable->item(row, col)->setBackground(rowShade);
+        }
+        ++row;
+    }
+
+    int absentCount = static_cast<int>(absent.size());
+    if (absentCount > 0) {
+        rangeSummaryLabel->setText(
+            QString("Showing %1 record(s) from %2 to %3. %4 absent.")
+                .arg(totalRows)
+                .arg(startDate.toString("MMM d, yyyy"))
+                .arg(today.toString("MMM d, yyyy"))
+                .arg(absentCount));
+    } else {
+        rangeSummaryLabel->setText(
+            QString("Showing %1 record(s) from %2 to %3.")
+                .arg(totalRows)
+                .arg(startDate.toString("MMM d, yyyy"))
+                .arg(today.toString("MMM d, yyyy")));
+    }
 
     // Attendance % is only meaningful scoped to a single subject (it's computed
     // against that subject's own scheduled sessions), so only populate it then.

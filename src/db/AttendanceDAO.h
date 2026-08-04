@@ -53,6 +53,13 @@ public:
 
     std::vector<SubjectAttendancePercentage> getSubjectAttendancePercentage(int subjectId);
 
+    // Enrolled students whose subject has at least one session within the date
+    // range but who have no attendance record anywhere in that range. Returned
+    // rows carry attendanceStatus = "absent" and an empty attendanceTime, with
+    // displaySessionDate set to the student's last expected session date.
+    std::vector<AttendanceDisplayRecord> getAbsentDisplayRecords(
+        const std::string& startDate, const std::string& endDate, int subjectId = -1);
+
     // Counts distinct students whose computed attendance % is below their
     // subject's configured minimum, across ALL subjects. Used for the
     // dashboard "below minimum" alert banner.
